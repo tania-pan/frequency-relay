@@ -1,0 +1,16 @@
+#ifndef __FREQUENCY_RELAY_H_
+#define __FREQUENCY_RELAY_H_
+
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/queue.h"
+#include "freertos/semphr.h"
+#include "freertos/mutex.h"
+
+SemaphoreHandle_t peakReadSem;
+QueueHandle_t buttonCmdQ;
+QueueHandle_t kbdQ;
+QueueHandle_t freqDataQ;
+MutexHandle_t peakReadSem;
+
+#endif  /* __SYSTEM_H_ */
