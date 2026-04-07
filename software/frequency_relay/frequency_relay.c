@@ -10,14 +10,15 @@
 #include "freertos/semphr.h"
 
 #include <altera_avalon_pio_regs.h>
-#include "system.h" // Needed for hardware base addresses and IRQs
+#include "system.h" 
 
 // project includes
 #include "frequency_relay.h"
 
-// definition of Task Stacks
+// definition of task stacks
 #define TASK_STACKSIZE 2048
 
+// globals variables for FreeRTOS
 QueueHandle_t buttonCmdQ;
 QueueHandle_t kbdQ;
 QueueHandle_t freqDataQ;
@@ -29,27 +30,41 @@ SemaphoreHandle_t timingLogMutex;
 
 freqData_t freq_data;
 
-
 void init_config(void) {
-buttonCmdQ = xQueueCreate(BUTTON_Q_LENGTH, sizeof(int));
-kbdQ = xQueueCreate(KBD_Q_LENGTH, sizeof(int));
-freqDataQ = xQueueCreate(FREQDATA_Q_LENGTH, sizeof(freqData_t));
+	// init global data
+	freq_data.frequency = 0;
+	freq_data.roc = 0;
+	freq_data.n = 0;
+	freq_data.timestamp = 0;
 
-peakReadSem = xSemaphoreCreateBinary();
-loadStatusMutex = xSemaphoreCreateMutex();
-systemStatusMutex = xSemaphoreCreateMutex();
-timingLogMutex = xSemaphoreCreateMutex();
+	buttonCmdQ = xQueueCreate(BUTTON_Q_LENGTH, sizeof(int));
+	kbdQ = xQueueCreate(KBD_Q_LENGTH, sizeof(int));
+	freqDataQ = xQueueCreate(FREQDATA_Q_LENGTH, sizeof(freqData_t));
+
+	peakReadSem = xSemaphoreCreateBinary();
+	loadStatusMutex = xSemaphoreCreateMutex();
+	systemStatusMutex = xSemaphoreCreateMutex();
+	timingLogMutex = xSemaphoreCreateMutex();
+
+	// check for any init failures
+	if (buttonCmdQ == NULL || kbdQ == NULL || freqDataQ == NULL ||
+	peakReadSem == NULL || loadStatusMutex == NULL || systemStatusMutex == NULL ||
+	timingLogMutex == NULL) {
+		printf("Fatal Error: Failed to create FreeRTOS primitives.\n");
+		for (;;); // Halt on fatal error
+	}
 }
 
-int main(int argc, char* argv[], char* envp[])
-{
+int main(int argc, char* argv[], char* envp[]) {
 	init_config();
 
-	printf("Initialization Complete.\\n");
+	printf("Initialization Complete.\n");
 
 	// Start Scheduler
 	vTaskStartScheduler();
 
+	// if scheduler returns, not enough FreeRTOS heap memory
+	printf("Fatal Error: Insufficient FreeRTOS heap to start scheduler.\n");
 	for (;;);
 	return 0;
 }
