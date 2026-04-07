@@ -9,8 +9,8 @@
 #include "freertos/queue.h"
 #include "freertos/semphr.h"
 
-#include <altera_avalon_pio_regs.h>
-#include "system.h" 
+#include "../frequency_relay_bsp/drivers/inc/altera_avalon_pio_regs.h"
+#include "../frequency_relay_bsp/system.h"
 
 // project includes
 #include "frequency_relay.h"
