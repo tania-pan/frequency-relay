@@ -20,7 +20,7 @@ A FreeRTOS-based application running on a Nios II soft-core processor (Intel/Alt
 5. Right-click the `frequency_relay` main project -> **Build Project**.
 
 ## FreeRTOS Architecture Overview
-This application relies on the following FreeRTOS IPC (Inter-Process Communication) mechanisms:
+This application relies on the following FreeRTOS inter-task communication/synchronization mechanisms:
 
 **Queues:**
 * `buttonCmdQ`: Handles incoming button commands.
