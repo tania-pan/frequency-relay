@@ -1,6 +1,0 @@
-#ifndef __FREQUENCY_RELAY_H_
-#define __FREQUENCY_RELAY_H_
-
-xSemaphoreHandle
-
-#endif  /* __SYSTEM_H_ */

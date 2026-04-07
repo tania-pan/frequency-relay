@@ -1,0 +1,21 @@
+# Eclipse metadata
+.metadata/
+RemoteSystemsTempFiles/
+
+# Build artifacts
+obj/
+*.o
+*.obj
+*.a
+*.d
+*.elf
+*.objdump
+*.map
+*.hex
+*.pof
+*.sof
+*.srec
+
+# OS generated files
+Thumbs.db
+.DS_Store

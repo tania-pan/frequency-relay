@@ -27,8 +27,6 @@ extern SemaphoreHandle_t loadStatusMutex;
 extern SemaphoreHandle_t systemStatusMutex;
 extern SemaphoreHandle_t timingLogMutex;
 
-
-
 void init_config(void);
 
 #endif  /* __SYSTEM_H_ */

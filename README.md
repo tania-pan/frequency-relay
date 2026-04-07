@@ -1,26 +1,39 @@
-Readme - Hello World Software Example
+# Frequency Relay
 
-DESCRIPTION:
-Simple program that prints "Hello from Nios II"
+A FreeRTOS-based application running on a Nios II soft-core processor (Intel/Altera Cyclone V FPGA).
 
-The memory footprint of this hosted application is intended to be small (under 100 kbytes) by default
-using a standard reference deisgn.
+## Hardware & Software Requirements
+* **Target Hardware:** Intel/Altera Cyclone V FPGA
+* **Processor:** Nios II Soft-Core Processor
+* **IDE:** Nios II Software Build Tools (SBT) for Eclipse
+* **RTOS:** FreeRTOS
 
-For an even smaller, reduced footprint version of this template, and an explanation of how
-to reduce the memory footprint for a given application, see the
-"small_hello_world" template.
+## Project Structure
+* `frequency_relay/`: Main application source code (`.c` / `.h` files) and FreeRTOS tasks.
+* `frequency_relay_bsp/`: Board Support Package containing hardware abstractions, drivers, and FreeRTOS source files.
 
+## Build Instructions
+1. Open Nios II SBT for Eclipse and select your workspace.
+2. Import both the `frequency_relay` and `frequency_relay_bsp` projects into your workspace.
+3. Right-click the `frequency_relay_bsp` project -> **Nios II** -> **Generate BSP**.
+4. Right-click the `frequency_relay_bsp` project -> **Build Project**.
+5. Right-click the `frequency_relay` main project -> **Build Project**.
 
-PERIPHERALS USED:
-This example exercises the following peripherals:
-- STDOUT device (UART or JTAG UART)
+## FreeRTOS Architecture Overview
+This application relies on the following FreeRTOS inter-task communication/synchronization mechanisms:
 
-SOFTWARE SOURCE FILES:
-This example includes the following software source files:
-- hello_world.c: Everyone needs a Hello World program, right?
+**Queues:**
+* `buttonCmdQ`: Handles incoming button commands.
+* `kbdQ`: Handles keyboard inputs.
+* `freqDataQ`: Passes calculated or measured frequency data between tasks.
 
-BOARD/HOST REQUIREMENTS:
-This example requires only a JTAG connection with a Nios Development board. If
-the host communication settings are changed from JTAG UART (default) to use a
-conventional UART, a serial cable between board DB-9 connector  and the host is
-required.
+**Semaphores & Mutexes:**
+* `peakReadSem`: Binary semaphore used to signal when a peak reading is ready.
+* `loadStatusMutex`: Mutex protecting shared load status variables.
+* `systemStatusMutex`: Mutex protecting shared system status variables.
+* `timingLogMutex`: Mutex protecting the timing log or logging interface.
+
+## Running the Application
+1. Ensure your Cyclone V board is connected and powered on.
+2. Program the FPGA with your `.sof` file via the Quartus Programmer.
+3. In Eclipse, right-click the `frequency_relay` project -> **Run As** -> **Nios II Hardware**.
