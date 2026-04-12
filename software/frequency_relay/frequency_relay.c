@@ -13,6 +13,7 @@
 
 #include "../frequency_relay_bsp/drivers/inc/altera_avalon_pio_regs.h"
 #include "../frequency_relay_bsp/system.h"
+#include "../frequency_relay_bsp/HAL/inc/alt_types.h"
 
 // project includes
 #include "frequency_relay.h"
@@ -32,16 +33,13 @@ SemaphoreHandle_t timingLogMutex;
 
 freqData_t freq_data;
 
-void fau_isr(void* context) {
+void fau_isr(void* context, alt_u32 id) {
 	// placeholder for return status of if a higher priority task
 	// was blocked from a resource liberated in this ISR
 	BaseType_t xHigherPriorityTask = pdFALSE;
 
 	// read 32 bit N counter from FAU
 	freq_data.n = IORD_ALTERA_AVALON_PIO_DATA(FREQUENCY_ANALYSER_BASE);
-
-	// clear the hardware interrupt
-	IOWR_ALTERA_AVALON_PIO_EDGE_CAP(FREQUENCY_ANALYSER_BASE, 0x0);
 
 	// give the semaphore (aka signal to the task that data is available)
 	// also if there is a higher priority task waiting on that resource
@@ -53,7 +51,7 @@ void fau_isr(void* context) {
 
 }
 
-void button_isr(void* context) {
+void button_isr(void* context, alt_u32 id) {
 	// placeholder for return status of if a higher priority task
 	// was blocked from a resource liberated in this ISR
 	BaseType_t xHigherPriorityTask = pdFALSE;
@@ -71,16 +69,13 @@ void button_isr(void* context) {
 	portEND_SWITCHING_ISR(xHigherPriorityTask);
 }
 
-void kbd_isr(void* context) {
+void kbd_isr(void* context, alt_u32 id) {
 	// placeholder for return status of if a higher priority task
 	// was blocked from a resource liberated in this ISR
 	BaseType_t xHigherPriorityTask = pdFALSE;
 
 	// read 32 bit N counter from FAU
 	int kbd_input = IORD_ALTERA_AVALON_PIO_DATA(PS2_BASE);
-
-	// clear the hardware interrupt
-	IOWR_ALTERA_AVALON_PIO_EDGE_CAP(PS2_BASE, 0x0);
 
 	// add data to mailbox, if higher task blocked cause queue
 	// make xHigherPriorityTask = pdTRUE
@@ -142,22 +137,22 @@ void init_config(void) {
 
 	// link the FAU IRQ to our routine
 	alt_irq_register(
-		FREQUENCY_ANALYSER_IRQ_INTERRUPT_CONTROLLER_ID,
 		FREQUENCY_ANALYSER_IRQ,
+		NULL,
 		fau_isr
 	);
 
 	// link the button IRQ to our routine
 	alt_irq_register(
-		PUSH_BUTTON_IRQ_INTERRUPT_CONTROLLER_ID,
 		PUSH_BUTTON_IRQ,
+		NULL,
 		button_isr
 	);
 
 	// link the keyboard IRQ to our routine
 	alt_irq_register(
-		PS2_IRQ_INTERRUPT_CONTROLLER_ID,
 		PS2_IRQ,
+		NULL,
 		kbd_isr
 	);
 
