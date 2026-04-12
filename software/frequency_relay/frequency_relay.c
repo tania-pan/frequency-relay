@@ -5,6 +5,7 @@
 
 // scheduler includes
 #include "freertos/FreeRTOS.h"
+#include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
@@ -30,6 +31,26 @@ SemaphoreHandle_t systemStatusMutex;
 SemaphoreHandle_t timingLogMutex;
 
 freqData_t freq_data;
+
+void fau_isr(void* context) {
+	// placeholder for return status of if a higher priority task
+	// was blocked from a resource liberated in this ISR
+	BaseType_t xHigherPriorityTask;
+
+	// read 32 bit N counter from FAU
+	freq_data.n = IORD_ALTERA_AVALON_PIO_DATA(FREQUENCY_ANALYSER_BASE);
+
+	// clear the hardware interrupt
+	IOWR_ALTERA_AVALON_PIO_EDGE_CAP(FREQUENCY_ANALYSER_BASE, 0x0);
+
+	// give the semaphore (aka signal to the task that data is available)
+	// also if there is a higher priority task waiting on that resource
+	// set xHigherPriorityTask high
+	xSemaphoreGiveFromISR(peakReadSem, &xHigherPriorityTask);
+
+	// if there is a higher priority task, switch to it before resuming
+	portYIELD_FROM_ISR(xHigherPriorityTask);
+}
 
 void debug_consumer_task(void *pvParameters) {
 	// TODO: remove once tested and working correctly
