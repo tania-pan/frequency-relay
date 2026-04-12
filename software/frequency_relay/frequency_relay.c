@@ -30,8 +30,12 @@ SemaphoreHandle_t timingLogMutex;
 
 freqData_t freq_data;
 
+void vga_display_task(void *pvParameters) {
+	return;
+}
+
 void init_config(void) {
-	// init global data
+	// -- global data --
 	freq_data.frequency = 0;
 	freq_data.roc = 0;
 	freq_data.n = 0;
@@ -51,8 +55,26 @@ void init_config(void) {
 	peakReadSem == NULL || loadStatusMutex == NULL || systemStatusMutex == NULL ||
 	timingLogMutex == NULL) {
 		printf("Fatal Error: Failed to create FreeRTOS primitives.\n");
-		for (;;); // Halt on fatal error
+		for (;;); // halt on fatal error
 	}
+	
+	// -- vga display --
+	// open char buffer "device" -> hardware struct pointer
+	alt_up_char_buffer_dev *char_buffer_dev;
+	char_buffer_dev = alt_up_char_buffer_open_dev("video_character_buffer_with_dma_avalon_char_buffer_slave");
+
+	if (char_buffer_dev == NULL) {
+		printf("Fatal Error: Could not open character buffer device.\n");
+		for(;;);
+	}
+
+	xTaskCreate(
+		"VGATask",
+		TASK_STACKSIZE,
+		(void*)char_buffer_dev,
+		3, 
+		NULL
+	);
 }
 
 int main(int argc, char* argv[], char* envp[]) {
