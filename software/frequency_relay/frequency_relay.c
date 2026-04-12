@@ -4,6 +4,8 @@
 #include <string.h>
 
 // scheduler includes
+#include "FreeRTOS/portmacro.h"
+#include "FreeRTOS/projdefs.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
@@ -31,7 +33,23 @@ SemaphoreHandle_t timingLogMutex;
 freqData_t freq_data;
 
 void vga_display_task(void *pvParameters) {
-	return;
+	// grab char buffer device handle from pv params
+	alt_up_char_buffer_dev *char_buffer = (alt_up_char_buffer_dev *)pvParameters;
+
+	// ~60Hz (17ms) timing setup
+	TickType_t xLastWakeTime = xTaskGetTickCount();
+	const TickType_t xFrequency = pdMS_TO_TICKS(17); // i DONT THINK FREQ IS ACCURATE
+
+	// lock (semaphore) -> copy data -> unlock -> send
+	float local_f, local_roc;
+	int local_load_status, local_system_status, local_timing_stats;
+	int kbd_rx;
+	char text_buf[64];
+
+	printf("VGA Task Started");
+	while(1) {
+		return;
+	}
 }
 
 void init_config(void) {
