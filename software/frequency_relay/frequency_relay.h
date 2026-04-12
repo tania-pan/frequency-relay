@@ -27,6 +27,11 @@ extern SemaphoreHandle_t loadStatusMutex;
 extern SemaphoreHandle_t systemStatusMutex;
 extern SemaphoreHandle_t timingLogMutex;
 
+// ISR functions
+void fau_isr(void* context);
+void button_isr(void* context);
+void kbd_isr(void* context);
+
 void init_config(void);
 
 #endif  /* __SYSTEM_H_ */

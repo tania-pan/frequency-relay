@@ -52,6 +52,43 @@ void fau_isr(void* context) {
 	portYIELD_FROM_ISR(xHigherPriorityTask);
 }
 
+void button_isr(void* context) {
+	// placeholder for return status of if a higher priority task
+	// was blocked from a resource liberated in this ISR
+	BaseType_t xHigherPriorityTask;
+
+	int button_input = IORD_ALTERA_AVALON_PIO_DATA(PUSH_BUTTON_BASE);
+
+	// clear the hardware interrupt
+	IOWR_ALTERA_AVALON_PIO_EDGE_CAP(PUSH_BUTTON_BASE, 0x0);
+
+	// add data to mailbox, if higher task blocked cause queue
+	// make xHigherPriorityTask = pdTRUE
+	xQueueSendFromISR(buttonCmdQ, &button_input, xHigherPriorityTask);
+
+	// if there is a higher priority task, switch to it before resuming
+	portYIELD_FROM_ISR(xHigherPriorityTask);
+}
+
+void kbd_isr(void* context) {
+	// placeholder for return status of if a higher priority task
+	// was blocked from a resource liberated in this ISR
+	BaseType_t xHigherPriorityTask;
+
+	// read 32 bit N counter from FAU
+	int kbd_input = IORD_ALTERA_AVALON_PIO_DATA(PS2_BASE);
+
+	// clear the hardware interrupt
+	IOWR_ALTERA_AVALON_PIO_EDGE_CAP(PS2_BASE, 0x0);
+
+	// add data to mailbox, if higher task blocked cause queue
+	// make xHigherPriorityTask = pdTRUE
+	xQueueSendFromISR(kbdQ, &kbd_input, xHigherPriorityTask);
+
+	// if there is a higher priority task, switch to it before resuming
+	portYIELD_FROM_ISR(xHigherPriorityTask);
+}
+
 void debug_consumer_task(void *pvParameters) {
 	// TODO: remove once tested and working correctly
 	int button_rx;
@@ -101,6 +138,36 @@ void init_config(void) {
 		printf("Fatal Error: Failed to create FreeRTOS primitives.\n");
 		for (;;); // Halt on fatal error
 	}
+
+	// link the FAU IRQ to our routine
+	alt_ic_alt_ic_isr_register(
+		FREQUENCY_ANALYSER_IRQ_INTERRUPT_CONTROLLER_ID,
+		FREQUENCY_ANALYSER_IRQ,
+		fau_isr,
+		NULL,
+		NULL
+	);
+
+	// link the button IRQ to our routine
+	alt_ic_alt_ic_isr_register(
+		PUSH_BUTTON_IRQ_INTERRUPT_CONTROLLER_ID,
+		PUSH_BUTTON_IRQ,
+		button_isr,
+		NULL,
+		NULL
+	);
+
+	// link the keyboard IRQ to our routine
+	alt_ic_alt_ic_isr_register(
+		PS2_IRQ_INTERRUPT_CONTROLLER_ID,
+		PS2_IRQ,
+		kbd_isr,
+		NULL,
+		NULL
+	);
+
+	// create debug task for testing ISRs
+	xTaskCreate(debug_consumer_task, "DebugTask", TASK_STACKSIZE, NULL, 1, NULL);
 }
 
 int main(int argc, char* argv[], char* envp[]) {
