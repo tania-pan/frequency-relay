@@ -135,6 +135,11 @@ void init_config(void) {
 		for (;;); // Halt on fatal error
 	}
 
+	// enable interrupts for button PIO
+	IOWR_ALTERA_AVALON_PIO_IRQ_MASK(PUSH_BUTTON_BASE, 0xF);
+	// clear any pending buttons
+	IOWR_ALTERA_AVALON_PIO_EDGE_CAP(PUSH_BUTTON_BASE, 0x0);
+
 	// link the FAU IRQ to our routine
 	alt_irq_register(
 		FREQUENCY_ANALYSER_IRQ,
