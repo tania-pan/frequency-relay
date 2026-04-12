@@ -35,7 +35,7 @@ freqData_t freq_data;
 void fau_isr(void* context) {
 	// placeholder for return status of if a higher priority task
 	// was blocked from a resource liberated in this ISR
-	BaseType_t xHigherPriorityTask;
+	BaseType_t xHigherPriorityTask = pdFALSE;
 
 	// read 32 bit N counter from FAU
 	freq_data.n = IORD_ALTERA_AVALON_PIO_DATA(FREQUENCY_ANALYSER_BASE);
@@ -49,13 +49,14 @@ void fau_isr(void* context) {
 	xSemaphoreGiveFromISR(peakReadSem, &xHigherPriorityTask);
 
 	// if there is a higher priority task, switch to it before resuming
-	portYIELD_FROM_ISR(xHigherPriorityTask);
+	portEND_SWITCHING_ISR(xHigherPriorityTask);
+
 }
 
 void button_isr(void* context) {
 	// placeholder for return status of if a higher priority task
 	// was blocked from a resource liberated in this ISR
-	BaseType_t xHigherPriorityTask;
+	BaseType_t xHigherPriorityTask = pdFALSE;
 
 	int button_input = IORD_ALTERA_AVALON_PIO_DATA(PUSH_BUTTON_BASE);
 
@@ -64,16 +65,16 @@ void button_isr(void* context) {
 
 	// add data to mailbox, if higher task blocked cause queue
 	// make xHigherPriorityTask = pdTRUE
-	xQueueSendFromISR(buttonCmdQ, &button_input, xHigherPriorityTask);
+	xQueueSendFromISR(buttonCmdQ, &button_input, &xHigherPriorityTask);
 
 	// if there is a higher priority task, switch to it before resuming
-	portYIELD_FROM_ISR(xHigherPriorityTask);
+	portEND_SWITCHING_ISR(xHigherPriorityTask);
 }
 
 void kbd_isr(void* context) {
 	// placeholder for return status of if a higher priority task
 	// was blocked from a resource liberated in this ISR
-	BaseType_t xHigherPriorityTask;
+	BaseType_t xHigherPriorityTask = pdFALSE;
 
 	// read 32 bit N counter from FAU
 	int kbd_input = IORD_ALTERA_AVALON_PIO_DATA(PS2_BASE);
@@ -83,10 +84,10 @@ void kbd_isr(void* context) {
 
 	// add data to mailbox, if higher task blocked cause queue
 	// make xHigherPriorityTask = pdTRUE
-	xQueueSendFromISR(kbdQ, &kbd_input, xHigherPriorityTask);
+	xQueueSendFromISR(kbdQ, &kbd_input, &xHigherPriorityTask);
 
 	// if there is a higher priority task, switch to it before resuming
-	portYIELD_FROM_ISR(xHigherPriorityTask);
+	portEND_SWITCHING_ISR(xHigherPriorityTask);
 }
 
 void debug_consumer_task(void *pvParameters) {
@@ -109,10 +110,10 @@ void debug_consumer_task(void *pvParameters) {
 		if (xQueueReceive(kbdQ, &kbd_rx, 0) == pdTRUE) {
 			printf("Keyboard queue accessed: Value = %u", kbd_rx);
 		}
-	}
 
-	// yield to scheduler for 50ms 
-	vTaskDelay(pdMS_TO_TICKS(50));
+		// yield to scheduler for 50ms
+		vTaskDelay(pdMS_TO_TICKS(50));
+	}
 }
 
 void init_config(void) {
@@ -140,30 +141,24 @@ void init_config(void) {
 	}
 
 	// link the FAU IRQ to our routine
-	alt_ic_alt_ic_isr_register(
+	alt_irq_register(
 		FREQUENCY_ANALYSER_IRQ_INTERRUPT_CONTROLLER_ID,
 		FREQUENCY_ANALYSER_IRQ,
-		fau_isr,
-		NULL,
-		NULL
+		fau_isr
 	);
 
 	// link the button IRQ to our routine
-	alt_ic_alt_ic_isr_register(
+	alt_irq_register(
 		PUSH_BUTTON_IRQ_INTERRUPT_CONTROLLER_ID,
 		PUSH_BUTTON_IRQ,
-		button_isr,
-		NULL,
-		NULL
+		button_isr
 	);
 
 	// link the keyboard IRQ to our routine
-	alt_ic_alt_ic_isr_register(
+	alt_irq_register(
 		PS2_IRQ_INTERRUPT_CONTROLLER_ID,
 		PS2_IRQ,
-		kbd_isr,
-		NULL,
-		NULL
+		kbd_isr
 	);
 
 	// create debug task for testing ISRs
