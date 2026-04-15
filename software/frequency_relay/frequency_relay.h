@@ -17,6 +17,16 @@ typedef struct {
 	int timestamp;	// in ms
 } freqData_t;
 
+typedef struct {
+	float TF_threshold;
+	float TROC_threshold;
+	enum Threshold threshold_edit_mode;
+	enum SystemMode system_mode;
+} system_status_t;
+
+enum Threshold {TF, TROC};
+enum SystemMode {NORMAL, MAINTENANCE};
+
 extern freqData_t freq_data;
 
 extern QueueHandle_t buttonCmdQ;

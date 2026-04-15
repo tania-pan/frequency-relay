@@ -12,6 +12,7 @@
 #include "freertos/semphr.h"
 
 #include "../frequency_relay_bsp/drivers/inc/altera_avalon_pio_regs.h"
+#include "../frequency_relay_bsp/drivers/inc/altera_up_avalon_video_character_buffer_with_dma.h"
 #include "../frequency_relay_bsp/system.h"
 
 // project includes
@@ -26,13 +27,16 @@ QueueHandle_t kbdQ;
 QueueHandle_t freqDataQ;
 
 SemaphoreHandle_t peakReadSem;
-SemaphoreHandle_t loadStatusMutex;
 SemaphoreHandle_t systemStatusMutex;
+SemaphoreHandle_t loadStatusMutex;
 SemaphoreHandle_t timingLogMutex;
 
 freqData_t freq_data;
+system_status_t system_status;
 
 void vga_display_task(void *pvParameters) {
+	// lock (semaphore) -> copy data -> unlock -> send to VGA
+
 	// grab char buffer device handle from pv params
 	alt_up_char_buffer_dev *char_buffer = (alt_up_char_buffer_dev *)pvParameters;
 
@@ -40,15 +44,81 @@ void vga_display_task(void *pvParameters) {
 	TickType_t xLastWakeTime = xTaskGetTickCount();
 	const TickType_t xFrequency = pdMS_TO_TICKS(17); // i DONT THINK FREQ IS ACCURATE
 
-	// lock (semaphore) -> copy data -> unlock -> send
-	float local_f, local_roc;
-	int local_load_status, local_system_status, local_timing_stats;
+
+	freqData_t local_freq_data;
+	system_status_t local_system_status;
 	int kbd_rx;
-	char text_buf[64];
+	char text_buffer[64];
 
 	printf("VGA Task Started");
 	while(1) {
-		return;
+		// -- process keyboard inputs --
+		while (xQueueReceive(kbdQ, &kbd_rx, 0) == pdTRUE) {
+			// -- lock system status to change struct members --
+			if (SemaphoreTake(systemStatusMutex) == pdTRUE) {
+				switch (kbd_rx) {
+					case 0x31: // 1
+						system_status.threshold_edit_mode = TF;
+						break;
+					case 0x32: // 2
+						system_status.threshold_edit_mode = TROC;
+						break;
+					case 0x75: // up arrow
+						if (system_status.threshold_edit_mode) {
+							system_status.TROC_threshold += 0.5;
+						} else {
+							system_status.TF_threshold += 0.5;
+						}
+						break;
+					case 0x72: // down arrow
+						if (system_status.threshold_edit_mode) {
+							system_status.TROC_threshold -= 0.5;
+						} else {
+							system_status.TF_threshold -= 0.5;
+						}
+						break;
+				}
+				// -- unlock semaphore --
+				xSemaphoreGive(systemStatusMutex);
+		}
+
+		// -- gather local copies of data --
+		// peak (don't steal from load management)
+		if (xQueuePeek(freqDataQ, &local_freq_data, 0) != pdTRUE) {
+			local_freq_data.frequency = 0;
+			local_freq_data.roc = 0;
+		}
+
+		// lock then grab
+		if (xSemaphoreTake(systemStatusMutex, portMAX_DELAY)) {
+			local_system_status = system_status;
+			xSemaphoreGive(systemStatusMutex);
+		}
+		if (xSemaphoreTake(loadStatusMutex, portMAX_DELAY)) {
+			// TODO: local_load_status =
+			xSemaphoreGive(loadStatusMutex);
+		}
+		if (xSemaphoreTake(timingLogMutex, portMAX_DELAY)) {
+			// TODO: local_timing_log = timing_log;
+			xSemaphoreGive(timingLogMutex);
+		}
+
+		// -- render VGA elements --
+		sprintf(text_buffer, "TF Threshold: %5.2f Hz    ", local_system_status.TF_threshold);
+		alt_up_char_buffer_string(char_buffer, text_buffer, 5, 5);
+		
+		sprintf(text_buffer, "TROC Threshold: %5.2f Hz/s    ", local_system_status.TROC_threshold);
+		alt_up_char_buffer_string(char_buffer, text_buffer, 5, 7);
+		
+		sprintf(text_buffer, "Current Frequency: %5.2f Hz    ", local_freq_data.frequency);
+		alt_up_char_buffer_string(char_buffer, text_buffer, 5, 9);
+
+		sprintf(text_buffer, "Current RoC: %5.2f Hz/s    ", local_freq_data.roc);
+		alt_up_char_buffer_string(char_buffer, text_buffer, 5, 11);
+
+		// TODO: add load and timing stats here
+
+		vTaskDelayUntil(&xLastWakeTime, xFrequency);
 	}
 }
 
@@ -58,6 +128,11 @@ void init_config(void) {
 	freq_data.roc = 0;
 	freq_data.n = 0;
 	freq_data.timestamp = 0;
+
+	system_status.TF_threshold = 50.0;
+	system_status.TROC_threshold= 10.0;
+	system_status.threshold_edit_mode = 0;
+	system_status.TF_threshold = 0;
 
 	buttonCmdQ = xQueueCreate(BUTTON_Q_LENGTH, sizeof(int));
 	kbdQ = xQueueCreate(KBD_Q_LENGTH, sizeof(int));
@@ -87,6 +162,7 @@ void init_config(void) {
 	}
 
 	xTaskCreate(
+		vga_display_task,
 		"VGATask",
 		TASK_STACKSIZE,
 		(void*)char_buffer_dev,
