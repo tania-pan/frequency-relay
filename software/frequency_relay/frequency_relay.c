@@ -115,10 +115,10 @@ void vga_display_task(void *pvParameters) {
 		sprintf(text_buffer, "TROC Threshold: %5.2f Hz/s    ", local_system_status.TROC_threshold);
 		alt_up_char_buffer_string(char_buffer, text_buffer, 5, 7);
 		
-		sprintf(text_buffer, "Current Frequency: %5d Hz    ", local_freq_data.frequency);
+		sprintf(text_buffer, "Current Frequency: %d Hz    ", local_freq_data.frequency);
 		alt_up_char_buffer_string(char_buffer, text_buffer, 5, 9);
 
-		sprintf(text_buffer, "Current RoC: %5d Hz/s    ", local_freq_data.roc);
+		sprintf(text_buffer, "Current RoC: %d Hz/s    ", local_freq_data.roc);
 		alt_up_char_buffer_string(char_buffer, text_buffer, 5, 11);
 
 		// TODO: add load and timing stats here
@@ -158,6 +158,7 @@ void init_config(void) {
 	}
 	
 	// -- vga display --
+	// open pixel buffer
 	alt_up_pixel_buffer_dma_dev *pixel_buf;
     pixel_buf = alt_up_pixel_buffer_dma_open_dev(VIDEO_PIXEL_BUFFER_DMA_NAME);
     if(pixel_buf == NULL){
@@ -166,7 +167,9 @@ void init_config(void) {
         for(;;);
     }
     alt_up_pixel_buffer_dma_clear_screen(pixel_buf, 0);
-	// open char buffer "device" -> hardware struct pointer
+    alt_up_pixel_buffer_dma_clear_screen(pixel_buf, 1);
+
+	// open char buffer
 	alt_up_char_buffer_dev *char_buffer_dev;
 	char_buffer_dev = alt_up_char_buffer_open_dev("/dev/video_character_buffer_with_dma");
 
