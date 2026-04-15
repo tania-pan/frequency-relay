@@ -14,6 +14,7 @@
 
 #include "../frequency_relay_bsp/drivers/inc/altera_avalon_pio_regs.h"
 #include "../frequency_relay_bsp/drivers/inc/altera_up_avalon_video_character_buffer_with_dma.h"
+#include "../frequency_relay_bsp/drivers/inc/altera_up_avalon_video_pixel_buffer_dma.h"
 #include "../frequency_relay_bsp/system.h"
 
 // project includes
@@ -157,9 +158,17 @@ void init_config(void) {
 	}
 	
 	// -- vga display --
+	alt_up_pixel_buffer_dma_dev *pixel_buf;
+    pixel_buf = alt_up_pixel_buffer_dma_open_dev(VIDEO_PIXEL_BUFFER_DMA_NAME);
+    if(pixel_buf == NULL){
+        printf("Fatal Error: Cannot find pixel buffer device\n");
+        fflush(stdout);
+        for(;;);
+    }
+    alt_up_pixel_buffer_dma_clear_screen(pixel_buf, 0);
 	// open char buffer "device" -> hardware struct pointer
 	alt_up_char_buffer_dev *char_buffer_dev;
-	char_buffer_dev = alt_up_char_buffer_open_dev(VIDEO_CHARACTER_BUFFER_WITH_DMA_AVALON_CHAR_BUFFER_SLAVE_NAME);
+	char_buffer_dev = alt_up_char_buffer_open_dev("/dev/video_character_buffer_with_dma");
 
 	if (char_buffer_dev == NULL) {
 		printf("Fatal Error: Could not open character buffer device.\n");
@@ -174,7 +183,7 @@ void init_config(void) {
 		"VGATask",
 		TASK_STACKSIZE,
 		(void*)char_buffer_dev,
-		3, 
+		3,
 		NULL
 	);
 }
