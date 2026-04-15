@@ -10,12 +10,28 @@
 #define KBD_Q_LENGTH 10
 #define FREQDATA_Q_LENGTH 20
 
+#define PS2_1 0x16
+#define PS2_2 0x1E
+#define PS2_UP 0x75
+#define PS2_DOWN 0x72
+
+enum Threshold {TF, TROC};
+enum SystemMode {NORMAL, MAINTENANCE};
+
 typedef struct {
+	// TODO: scale up for efficient decimals
 	int frequency;
 	int roc; 		// rate of change of frequency
 	int n;			// sample count
 	int timestamp;	// in ms
 } freqData_t;
+
+typedef struct {
+	float TF_threshold;
+	float TROC_threshold;
+	enum Threshold threshold_edit_mode;
+	enum SystemMode system_mode;
+} system_status_t;
 
 extern freqData_t freq_data;
 
