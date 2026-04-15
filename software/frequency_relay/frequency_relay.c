@@ -55,22 +55,22 @@ void vga_display_task(void *pvParameters) {
 		// -- process keyboard inputs --
 		while (xQueueReceive(kbdQ, &kbd_rx, 0) == pdTRUE) {
 			// -- lock system status to change struct members --
-			if (SemaphoreTake(systemStatusMutex) == pdTRUE) {
+			if (xSemaphoreTake(systemStatusMutex) == pdTRUE) {
 				switch (kbd_rx) {
-					case 0x31: // 1
+					case PS2_1:
 						system_status.threshold_edit_mode = TF;
 						break;
-					case 0x32: // 2
+					case PS2_2:
 						system_status.threshold_edit_mode = TROC;
 						break;
-					case 0x75: // up arrow
+					case PS2_UP:
 						if (system_status.threshold_edit_mode) {
 							system_status.TROC_threshold += 0.5;
 						} else {
 							system_status.TF_threshold += 0.5;
 						}
 						break;
-					case 0x72: // down arrow
+					case PS2_DOWN:
 						if (system_status.threshold_edit_mode) {
 							system_status.TROC_threshold -= 0.5;
 						} else {
@@ -80,6 +80,7 @@ void vga_display_task(void *pvParameters) {
 				}
 				// -- unlock semaphore --
 				xSemaphoreGive(systemStatusMutex);
+			}
 		}
 
 		// -- gather local copies of data --
@@ -131,8 +132,8 @@ void init_config(void) {
 
 	system_status.TF_threshold = 50.0;
 	system_status.TROC_threshold= 10.0;
-	system_status.threshold_edit_mode = 0;
-	system_status.TF_threshold = 0;
+	system_status.threshold_edit_mode = TF;
+	system_status.system_mode = NORMAL;
 
 	buttonCmdQ = xQueueCreate(BUTTON_Q_LENGTH, sizeof(int));
 	kbdQ = xQueueCreate(KBD_Q_LENGTH, sizeof(int));
@@ -154,7 +155,7 @@ void init_config(void) {
 	// -- vga display --
 	// open char buffer "device" -> hardware struct pointer
 	alt_up_char_buffer_dev *char_buffer_dev;
-	char_buffer_dev = alt_up_char_buffer_open_dev("video_character_buffer_with_dma_avalon_char_buffer_slave");
+	char_buffer_dev = alt_up_char_buffer_open_dev("/dev/video_character_buffer_with_dma_avalon_char_buffer_slave");
 
 	if (char_buffer_dev == NULL) {
 		printf("Fatal Error: Could not open character buffer device.\n");

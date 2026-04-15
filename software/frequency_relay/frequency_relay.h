@@ -10,6 +10,11 @@
 #define KBD_Q_LENGTH 10
 #define FREQDATA_Q_LENGTH 20
 
+#define PS2_1 0x16
+#define PS2_2 0x1E
+#define PS2_UP 0x75
+#define PS2_DOWN 0x72
+
 typedef struct {
 	int frequency;
 	int roc; 		// rate of change of frequency
