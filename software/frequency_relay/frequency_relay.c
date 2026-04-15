@@ -51,7 +51,9 @@ void vga_display_task(void *pvParameters) {
 	int kbd_rx;
 	char text_buffer[64];
 
-	printf("VGA Task Started");
+	printf("VGA Task Started\n");
+	fflush(stdout);
+
 	while(1) {
 		// -- process keyboard inputs --
 		while (xQueueReceive(kbdQ, &kbd_rx, 0) == pdTRUE) {
@@ -112,10 +114,10 @@ void vga_display_task(void *pvParameters) {
 		sprintf(text_buffer, "TROC Threshold: %5.2f Hz/s    ", local_system_status.TROC_threshold);
 		alt_up_char_buffer_string(char_buffer, text_buffer, 5, 7);
 		
-		sprintf(text_buffer, "Current Frequency: %5.2d Hz    ", local_freq_data.frequency);
+		sprintf(text_buffer, "Current Frequency: %5d Hz    ", local_freq_data.frequency);
 		alt_up_char_buffer_string(char_buffer, text_buffer, 5, 9);
 
-		sprintf(text_buffer, "Current RoC: %5.2d Hz/s    ", local_freq_data.roc);
+		sprintf(text_buffer, "Current RoC: %5d Hz/s    ", local_freq_data.roc);
 		alt_up_char_buffer_string(char_buffer, text_buffer, 5, 11);
 
 		// TODO: add load and timing stats here
@@ -150,18 +152,22 @@ void init_config(void) {
 	peakReadSem == NULL || loadStatusMutex == NULL || systemStatusMutex == NULL ||
 	timingLogMutex == NULL) {
 		printf("Fatal Error: Failed to create FreeRTOS primitives.\n");
+		fflush(stdout);
 		for (;;); // halt on fatal error
 	}
 	
 	// -- vga display --
 	// open char buffer "device" -> hardware struct pointer
 	alt_up_char_buffer_dev *char_buffer_dev;
-	char_buffer_dev = alt_up_char_buffer_open_dev("/dev/video_character_buffer_with_dma_avalon_char_buffer_slave");
+	char_buffer_dev = alt_up_char_buffer_open_dev(VIDEO_CHARACTER_BUFFER_WITH_DMA_AVALON_CHAR_BUFFER_SLAVE_NAME);
 
 	if (char_buffer_dev == NULL) {
 		printf("Fatal Error: Could not open character buffer device.\n");
+		fflush(stdout);
 		for(;;);
 	}
+
+	alt_up_char_buffer_clear(char_buffer_dev);
 
 	xTaskCreate(
 		vga_display_task,
@@ -174,15 +180,20 @@ void init_config(void) {
 }
 
 int main(int argc, char* argv[], char* envp[]) {
+	printf("System booting...\n");
+	fflush(stdout);
+
 	init_config();
 
 	printf("Initialization Complete.\n");
+	fflush(stdout);
 
 	// Start Scheduler
 	vTaskStartScheduler();
 
 	// if scheduler returns, not enough FreeRTOS heap memory
 	printf("Fatal Error: Insufficient FreeRTOS heap to start scheduler.\n");
+	fflush(stdout);
 	for (;;);
 	return 0;
 }
