@@ -51,11 +51,13 @@ extern volatile unsigned int latestN;
 extern QueueHandle_t buttonCmdQ;
 extern QueueHandle_t kbdQ;
 extern QueueHandle_t freqDataQ;
-extern SemaphoreHandle_t peakReadSem;
+extern SemaphoreHandle_t peakReadySem;
 extern SemaphoreHandle_t loadStatusMutex;
 extern SemaphoreHandle_t systemStatusMutex;
 extern SemaphoreHandle_t timingLogMutex;
 
 void init_config(void);
+void TestFAUTask(void *pvParameters);
+void TaskFrequencyCalculation(void *pvParameters);
 
 #endif  /* __FREQUENCY_RELAY_H_ */

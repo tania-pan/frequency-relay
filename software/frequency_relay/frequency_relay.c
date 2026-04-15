@@ -23,7 +23,7 @@ QueueHandle_t buttonCmdQ;
 QueueHandle_t kbdQ;
 QueueHandle_t freqDataQ;
 
-SemaphoreHandle_t peakReadSem;
+SemaphoreHandle_t peakReadySem;
 SemaphoreHandle_t loadStatusMutex;
 SemaphoreHandle_t systemStatusMutex;
 SemaphoreHandle_t timingLogMutex;
@@ -37,9 +37,6 @@ freqData_t freq_data;
 float thresholdFreq;
 float thresholdROCF;
 volatile unsigned int latestN;
-
-// function declarations
-void TaskFrequencyCalculation(void *pvParameters);
 
 void init_config(void) {
 	// init global data
@@ -56,14 +53,14 @@ void init_config(void) {
 	kbdQ = xQueueCreate(KBD_Q_LENGTH, sizeof(int));
 	freqDataQ = xQueueCreate(FREQDATA_Q_LENGTH, sizeof(freqData_t));
 
-	peakReadSem = xSemaphoreCreateBinary();
+	peakReadySem = xSemaphoreCreateBinary();
 	loadStatusMutex = xSemaphoreCreateMutex();
 	systemStatusMutex = xSemaphoreCreateMutex();
 	timingLogMutex = xSemaphoreCreateMutex();
 
 	// check for any init failures
 	if (buttonCmdQ == NULL || kbdQ == NULL || freqDataQ == NULL ||
-	peakReadSem == NULL || loadStatusMutex == NULL || systemStatusMutex == NULL ||
+	peakReadySem == NULL || loadStatusMutex == NULL || systemStatusMutex == NULL ||
 	timingLogMutex == NULL) {
 		printf("Fatal Error: Failed to create FreeRTOS primitives.\n");
 		for (;;); // halt on fatal error
@@ -83,6 +80,8 @@ int main(int argc, char* argv[], char* envp[]) {
 				NULL, 
 				1, 		// priority
 				NULL);
+
+	xTaskCreate(TestFAUTask, "TestFAU", 500, NULL, 3, NULL);
 
 	// start Scheduler
 	vTaskStartScheduler();

@@ -10,13 +10,16 @@ void TaskFrequencyCalculation(void *pvParameters) {
 
     while (1) {
         // block until ISR gives semaphore
-        xSemaphoreTake(peakReadSem, portMAX_DELAY);
+        xSemaphoreTake(peakReadySem, portMAX_DELAY);
 
         unsigned int N = latestN;   // read N that ISR stored
         if (N == 0) continue;       // avoid division by zero
 
         // calculate frequency
         float f_new = 16000.0f / (float)N;
+
+        // for testing task 1: DELETE
+        printf("TaskFrequencyCalculation: N=%u, f=%.2fHz\n", N, f_new);
 
         // calculate ROCF
         float roc = 0.0f;
