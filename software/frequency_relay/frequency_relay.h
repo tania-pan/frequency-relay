@@ -15,7 +15,11 @@
 #define PS2_UP 0x75
 #define PS2_DOWN 0x72
 
+enum Threshold {TF, TROC};
+enum SystemMode {NORMAL, MAINTENANCE};
+
 typedef struct {
+	// TODO: scale up for efficient decimals
 	int frequency;
 	int roc; 		// rate of change of frequency
 	int n;			// sample count
@@ -28,9 +32,6 @@ typedef struct {
 	enum Threshold threshold_edit_mode;
 	enum SystemMode system_mode;
 } system_status_t;
-
-enum Threshold {TF, TROC};
-enum SystemMode {NORMAL, MAINTENANCE};
 
 extern freqData_t freq_data;
 

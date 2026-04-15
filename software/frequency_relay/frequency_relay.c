@@ -1,6 +1,7 @@
 // standard includes
 #include <stddef.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <string.h>
 
 // scheduler includes
@@ -55,7 +56,7 @@ void vga_display_task(void *pvParameters) {
 		// -- process keyboard inputs --
 		while (xQueueReceive(kbdQ, &kbd_rx, 0) == pdTRUE) {
 			// -- lock system status to change struct members --
-			if (xSemaphoreTake(systemStatusMutex) == pdTRUE) {
+			if (xSemaphoreTake(systemStatusMutex, 0) == pdTRUE) {
 				switch (kbd_rx) {
 					case PS2_1:
 						system_status.threshold_edit_mode = TF;
@@ -111,10 +112,10 @@ void vga_display_task(void *pvParameters) {
 		sprintf(text_buffer, "TROC Threshold: %5.2f Hz/s    ", local_system_status.TROC_threshold);
 		alt_up_char_buffer_string(char_buffer, text_buffer, 5, 7);
 		
-		sprintf(text_buffer, "Current Frequency: %5.2f Hz    ", local_freq_data.frequency);
+		sprintf(text_buffer, "Current Frequency: %5.2d Hz    ", local_freq_data.frequency);
 		alt_up_char_buffer_string(char_buffer, text_buffer, 5, 9);
 
-		sprintf(text_buffer, "Current RoC: %5.2f Hz/s    ", local_freq_data.roc);
+		sprintf(text_buffer, "Current RoC: %5.2d Hz/s    ", local_freq_data.roc);
 		alt_up_char_buffer_string(char_buffer, text_buffer, 5, 11);
 
 		// TODO: add load and timing stats here
