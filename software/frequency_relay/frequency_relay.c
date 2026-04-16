@@ -41,8 +41,6 @@ freqData_t freq_data;
 system_status_t system_status;
 
 void vga_display_task(void *pvParameters) {
-	// lock (semaphore) -> copy data -> unlock -> send to VGA
-
 	// grab char buffer device handle from pv params
 	alt_up_char_buffer_dev *char_buffer = (alt_up_char_buffer_dev *)pvParameters;
 
@@ -50,10 +48,10 @@ void vga_display_task(void *pvParameters) {
 	TickType_t xLastWakeTime = xTaskGetTickCount();
 	const TickType_t xFrequency = pdMS_TO_TICKS(17); // i DONT THINK FREQ IS ACCURATE
 
-
 	freqData_t local_freq_data;
 	system_status_t local_system_status;
 	int kbd_rx;
+	int ignore_next_key = 0; // track releases
 	char text_buffer[64];
 
 	printf("VGA Task Started\n");
@@ -62,6 +60,18 @@ void vga_display_task(void *pvParameters) {
 	while(1) {
 		// -- process keyboard inputs --
 		while (xQueueReceive(kbdQ, &kbd_rx, 0) == pdTRUE) {
+
+			// check for if its a release code
+			if (kbd_rx == PS2_BREAK) {
+				ignore_next_key = 1;
+				continue;
+			}
+			// break sequence means code is repeated after PS2_BREAK
+			if (ignore_next_key) {
+				ignore_next_key = 0;
+				continue;
+			}
+
 			// -- lock system status to change struct members --
 			if (xSemaphoreTake(systemStatusMutex, 0) == pdTRUE) {
 				switch (kbd_rx) {
@@ -113,10 +123,12 @@ void vga_display_task(void *pvParameters) {
 		}
 
 		// -- render VGA elements --
-		sprintf(text_buffer, "TF Threshold: %5.2f Hz    ", local_system_status.TF_threshold);
+		sprintf(text_buffer, "[%d] TF Threshold: %5.2f Hz    ", 
+			(1 - system_status.threshold_edit_mode), local_system_status.TF_threshold);
 		alt_up_char_buffer_string(char_buffer, text_buffer, 5, 5);
 		
-		sprintf(text_buffer, "TROC Threshold: %5.2f Hz/s    ", local_system_status.TROC_threshold);
+		sprintf(text_buffer, "[%d] TROC Threshold: %5.2f Hz/s    ", 
+			system_status.threshold_edit_mode, local_system_status.TROC_threshold);
 		alt_up_char_buffer_string(char_buffer, text_buffer, 5, 7);
 		
 		sprintf(text_buffer, "Current Frequency: %d Hz    ", local_freq_data.frequency);
