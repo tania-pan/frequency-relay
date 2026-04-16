@@ -8,6 +8,8 @@
 #include "FreeRTOS/portmacro.h"
 #include "FreeRTOS/projdefs.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/portmacro.h"
+#include "freertos/projdefs.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
 #include "freertos/semphr.h"
@@ -15,7 +17,9 @@
 #include "../frequency_relay_bsp/drivers/inc/altera_avalon_pio_regs.h"
 #include "../frequency_relay_bsp/drivers/inc/altera_up_avalon_video_character_buffer_with_dma.h"
 #include "../frequency_relay_bsp/drivers/inc/altera_up_avalon_video_pixel_buffer_dma.h"
+#include "../frequency_relay_bsp/drivers/inc/altera_up_avalon_ps2_regs.h"
 #include "../frequency_relay_bsp/system.h"
+#include "../frequency_relay_bsp/HAL/inc/alt_types.h"
 
 // project includes
 #include "frequency_relay.h"
@@ -37,8 +41,6 @@ freqData_t freq_data;
 system_status_t system_status;
 
 void vga_display_task(void *pvParameters) {
-	// lock (semaphore) -> copy data -> unlock -> send to VGA
-
 	// grab char buffer device handle from pv params
 	alt_up_char_buffer_dev *char_buffer = (alt_up_char_buffer_dev *)pvParameters;
 
@@ -46,10 +48,10 @@ void vga_display_task(void *pvParameters) {
 	TickType_t xLastWakeTime = xTaskGetTickCount();
 	const TickType_t xFrequency = pdMS_TO_TICKS(17); // i DONT THINK FREQ IS ACCURATE
 
-
 	freqData_t local_freq_data;
 	system_status_t local_system_status;
 	int kbd_rx;
+	int ignore_next_key = 0; // track releases
 	char text_buffer[64];
 
 	printf("VGA Task Started\n");
@@ -58,6 +60,18 @@ void vga_display_task(void *pvParameters) {
 	while(1) {
 		// -- process keyboard inputs --
 		while (xQueueReceive(kbdQ, &kbd_rx, 0) == pdTRUE) {
+
+			// check for if its a release code
+			if (kbd_rx == PS2_BREAK) {
+				ignore_next_key = 1;
+				continue;
+			}
+			// break sequence means code is repeated after PS2_BREAK
+			if (ignore_next_key) {
+				ignore_next_key = 0;
+				continue;
+			}
+
 			// -- lock system status to change struct members --
 			if (xSemaphoreTake(systemStatusMutex, 0) == pdTRUE) {
 				switch (kbd_rx) {
@@ -109,10 +123,12 @@ void vga_display_task(void *pvParameters) {
 		}
 
 		// -- render VGA elements --
-		sprintf(text_buffer, "TF Threshold: %5.2f Hz    ", local_system_status.TF_threshold);
+		sprintf(text_buffer, "[%d] TF Threshold: %5.2f Hz    ", 
+			(1 - system_status.threshold_edit_mode), local_system_status.TF_threshold);
 		alt_up_char_buffer_string(char_buffer, text_buffer, 5, 5);
 		
-		sprintf(text_buffer, "TROC Threshold: %5.2f Hz/s    ", local_system_status.TROC_threshold);
+		sprintf(text_buffer, "[%d] TROC Threshold: %5.2f Hz/s    ", 
+			system_status.threshold_edit_mode, local_system_status.TROC_threshold);
 		alt_up_char_buffer_string(char_buffer, text_buffer, 5, 7);
 		
 		sprintf(text_buffer, "Current Frequency: %d Hz    ", local_freq_data.frequency);
@@ -124,6 +140,87 @@ void vga_display_task(void *pvParameters) {
 		// TODO: add load and timing stats here
 
 		vTaskDelayUntil(&xLastWakeTime, xFrequency);
+	}
+}
+
+void fau_isr(void* context, alt_u32 id) {
+	// placeholder for return status of if a higher priority task
+	// was blocked from a resource liberated in this ISR
+	BaseType_t xHigherPriorityTask = pdFALSE;
+
+	// read 32 bit N counter from FAU
+	freq_data.n = IORD_ALTERA_AVALON_PIO_DATA(FREQUENCY_ANALYSER_BASE);
+
+	// give the semaphore (aka signal to the task that data is available)
+	// also if there is a higher priority task waiting on that resource
+	// set xHigherPriorityTask high
+	xSemaphoreGiveFromISR(peakReadSem, &xHigherPriorityTask);
+
+	// if there is a higher priority task, switch to it before resuming
+	portEND_SWITCHING_ISR(xHigherPriorityTask);
+
+}
+
+void button_isr(void* context, alt_u32 id) {
+	// placeholder for return status of if a higher priority task
+	// was blocked from a resource liberated in this ISR
+	BaseType_t xHigherPriorityTask = pdFALSE;
+
+	int button_input = IORD_ALTERA_AVALON_PIO_DATA(PUSH_BUTTON_BASE);
+
+	// clear the hardware interrupt
+	IOWR_ALTERA_AVALON_PIO_EDGE_CAP(PUSH_BUTTON_BASE, 0xF);
+
+	// add data to mailbox, if higher task blocked cause queue
+	// make xHigherPriorityTask = pdTRUE
+	xQueueSendFromISR(buttonCmdQ, &button_input, &xHigherPriorityTask);
+
+	// if there is a higher priority task, switch to it before resuming
+	portEND_SWITCHING_ISR(xHigherPriorityTask);
+}
+
+void kbd_isr(void* context, alt_u32 id) {
+	(void)context;
+	(void)id;
+	BaseType_t xHigherPriorityTask = pdFALSE;
+
+	// read the full 32bit register
+	uint32_t ps2_reg = IORD_ALT_UP_PS2_PORT_DATA_REG(PS2_BASE);
+
+	// bit 15 is RVALID (if data valid)
+	if (ps2_reg & 0x8000) {
+		// extract only the 8bit key code (0-7)
+		int key_code = ps2_reg & 0xFF;
+
+		xQueueSendFromISR(kbdQ, &key_code, &xHigherPriorityTask);
+	}
+
+	portEND_SWITCHING_ISR(xHigherPriorityTask);
+}
+
+void debug_consumer_task(void *pvParameters) {
+	// TODO: remove once tested and working correctly
+	int button_rx;
+	int kbd_rx;
+
+	printf("Debug task: waiting for ISR triggers");
+
+	while(1) {
+		// check semaphore if new resource has appeared
+		if (xSemaphoreTake(peakReadSem, 0)) {
+//			printf("FAU semaphore accessed\n");
+		}
+		// check button queue
+		if (xQueueReceive(buttonCmdQ, &button_rx, 0) == pdTRUE) {
+			printf("Button queue accessed: Value = %u\n", button_rx);
+		}
+		// check kbd queue
+		if (xQueueReceive(kbdQ, &kbd_rx, 0) == pdTRUE) {
+			printf("Keyboard queue accessed: Value = %u\n", kbd_rx);
+		}
+
+		// yield to scheduler for 50ms
+		vTaskDelay(pdMS_TO_TICKS(50));
 	}
 }
 
@@ -156,6 +253,22 @@ void init_config(void) {
 		fflush(stdout);
 		for (;;); // halt on fatal error
 	}
+
+	// enable interrupts for button PIO
+	IOWR_ALTERA_AVALON_PIO_IRQ_MASK(PUSH_BUTTON_BASE, 0xF);
+	// clear any pending buttons
+	IOWR_ALTERA_AVALON_PIO_EDGE_CAP(PUSH_BUTTON_BASE, 0xF);
+
+	// enable read interrupts for PS2 KBD
+	IOWR_ALT_UP_PS2_PORT_CTRL_REG(PS2_BASE, 1);
+
+	// link the IRQs to our routines
+	alt_irq_register(FREQUENCY_ANALYSER_IRQ, NULL, fau_isr);
+	alt_irq_register(PUSH_BUTTON_IRQ, NULL, button_isr);
+	alt_irq_register(PS2_IRQ, NULL, kbd_isr);
+
+	// create debug task for testing ISRs
+	xTaskCreate(debug_consumer_task, "DebugTask", TASK_STACKSIZE, NULL, 1, NULL);
 	
 	// -- vga display --
 	// open pixel buffer

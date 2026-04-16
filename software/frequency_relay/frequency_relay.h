@@ -14,6 +14,7 @@
 #define PS2_2 0x1E
 #define PS2_UP 0x75
 #define PS2_DOWN 0x72
+#define PS2_BREAK 0xF0
 
 enum Threshold {TF, TROC};
 enum SystemMode {NORMAL, MAINTENANCE};
@@ -42,6 +43,11 @@ extern SemaphoreHandle_t peakReadSem;
 extern SemaphoreHandle_t loadStatusMutex;
 extern SemaphoreHandle_t systemStatusMutex;
 extern SemaphoreHandle_t timingLogMutex;
+
+// ISR functions
+void fau_isr(void* context, alt_u32 id);
+void button_isr(void* context, alt_u32 id);
+void kbd_isr(void* context, alt_u32 id);
 
 void init_config(void);
 
