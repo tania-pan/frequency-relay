@@ -168,18 +168,21 @@ void button_isr(void* context, alt_u32 id) {
 }
 
 void kbd_isr(void* context, alt_u32 id) {
-	// placeholder for return status of if a higher priority task
-	// was blocked from a resource liberated in this ISR
+	(void)context;
+	(void)id;
 	BaseType_t xHigherPriorityTask = pdFALSE;
 
-	// read 32 bit N counter from FAU
-	int kbd_input = IORD_ALT_UP_PS2_PORT_DATA_REG(PS2_BASE);
+	// read the full 32bit register
+	uint32_t ps2_reg = IORD_ALT_UP_PS2_PORT_DATA_REG(PS2_BASE);
 
-	// add data to mailbox, if higher task blocked cause queue
-	// make xHigherPriorityTask = pdTRUE
-	xQueueSendFromISR(kbdQ, &kbd_input, &xHigherPriorityTask);
+	// bit 15 is RVALID (if data valid)
+	if (ps2_reg & 0x8000) {
+		// extract only the 8bit key code (0-7)
+		int key_code = ps2_reg & 0xFF;
 
-	// if there is a higher priority task, switch to it before resuming
+		xQueueSendFromISR(kbdQ, &key_code, &xHigherPriorityTask);
+	}
+
 	portEND_SWITCHING_ISR(xHigherPriorityTask);
 }
 
