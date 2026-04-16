@@ -17,6 +17,7 @@
 #include "../frequency_relay_bsp/drivers/inc/altera_avalon_pio_regs.h"
 #include "../frequency_relay_bsp/drivers/inc/altera_up_avalon_video_character_buffer_with_dma.h"
 #include "../frequency_relay_bsp/drivers/inc/altera_up_avalon_video_pixel_buffer_dma.h"
+#include "../frequency_relay_bsp/drivers/inc/altera_up_avalon_ps2_regs.h"
 #include "../frequency_relay_bsp/system.h"
 #include "../frequency_relay_bsp/HAL/inc/alt_types.h"
 
@@ -156,7 +157,7 @@ void button_isr(void* context, alt_u32 id) {
 	int button_input = IORD_ALTERA_AVALON_PIO_DATA(PUSH_BUTTON_BASE);
 
 	// clear the hardware interrupt
-	IOWR_ALTERA_AVALON_PIO_EDGE_CAP(PUSH_BUTTON_BASE, 0x0);
+	IOWR_ALTERA_AVALON_PIO_EDGE_CAP(PUSH_BUTTON_BASE, 0xF);
 
 	// add data to mailbox, if higher task blocked cause queue
 	// make xHigherPriorityTask = pdTRUE
@@ -172,7 +173,7 @@ void kbd_isr(void* context, alt_u32 id) {
 	BaseType_t xHigherPriorityTask = pdFALSE;
 
 	// read 32 bit N counter from FAU
-	int kbd_input = IORD_ALTERA_AVALON_PIO_DATA(PS2_BASE);
+	int kbd_input = IORD_ALT_UP_PS2_PORT_DATA_REG(PS2_BASE);
 
 	// add data to mailbox, if higher task blocked cause queue
 	// make xHigherPriorityTask = pdTRUE
@@ -192,15 +193,15 @@ void debug_consumer_task(void *pvParameters) {
 	while(1) {
 		// check semaphore if new resource has appeared
 		if (xSemaphoreTake(peakReadSem, 0)) {
-			printf("FAU semaphore accessed");
+//			printf("FAU semaphore accessed\n");
 		}
 		// check button queue
 		if (xQueueReceive(buttonCmdQ, &button_rx, 0) == pdTRUE) {
-			printf("Button queue accessed: Value = %u", button_rx);
+			printf("Button queue accessed: Value = %u\n", button_rx);
 		}
 		// check kbd queue
 		if (xQueueReceive(kbdQ, &kbd_rx, 0) == pdTRUE) {
-			printf("Keyboard queue accessed: Value = %u", kbd_rx);
+			printf("Keyboard queue accessed: Value = %u\n", kbd_rx);
 		}
 
 		// yield to scheduler for 50ms
@@ -241,28 +242,15 @@ void init_config(void) {
 	// enable interrupts for button PIO
 	IOWR_ALTERA_AVALON_PIO_IRQ_MASK(PUSH_BUTTON_BASE, 0xF);
 	// clear any pending buttons
-	IOWR_ALTERA_AVALON_PIO_EDGE_CAP(PUSH_BUTTON_BASE, 0x0);
+	IOWR_ALTERA_AVALON_PIO_EDGE_CAP(PUSH_BUTTON_BASE, 0xF);
 
-	// link the FAU IRQ to our routine
-	alt_irq_register(
-		FREQUENCY_ANALYSER_IRQ,
-		NULL,
-		fau_isr
-	);
+	// enable read interrupts for PS2 KBD
+	IOWR_ALT_UP_PS2_PORT_CTRL_REG(PS2_BASE, 1);
 
-	// link the button IRQ to our routine
-	alt_irq_register(
-		PUSH_BUTTON_IRQ,
-		NULL,
-		button_isr
-	);
-
-	// link the keyboard IRQ to our routine
-	alt_irq_register(
-		PS2_IRQ,
-		NULL,
-		kbd_isr
-	);
+	// link the IRQs to our routines
+	alt_irq_register(FREQUENCY_ANALYSER_IRQ, NULL, fau_isr);
+	alt_irq_register(PUSH_BUTTON_IRQ, NULL, button_isr);
+	alt_irq_register(PS2_IRQ, NULL, kbd_isr);
 
 	// create debug task for testing ISRs
 	xTaskCreate(debug_consumer_task, "DebugTask", TASK_STACKSIZE, NULL, 1, NULL);
