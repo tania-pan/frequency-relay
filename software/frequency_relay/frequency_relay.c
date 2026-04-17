@@ -159,7 +159,7 @@ void fau_isr(void* context, alt_u32 id) {
 	// give the semaphore (aka signal to the task that data is available)
 	// also if there is a higher priority task waiting on that resource
 	// set xHigherPriorityTask high
-	xSemaphoreGiveFromISR(peakReadSem, &xHigherPriorityTask);
+	xSemaphoreGiveFromISR(peakReadySem, &xHigherPriorityTask);
 
 	// if there is a higher priority task, switch to it before resuming
 	portEND_SWITCHING_ISR(xHigherPriorityTask);
@@ -212,7 +212,7 @@ void debug_consumer_task(void *pvParameters) {
 
 	while(1) {
 		// check semaphore if new resource has appeared
-		if (xSemaphoreTake(peakReadSem, 0)) {
+		if (xSemaphoreTake(peakReadySem, 0)) {
 //			printf("FAU semaphore accessed\n");
 		}
 		// check button queue
