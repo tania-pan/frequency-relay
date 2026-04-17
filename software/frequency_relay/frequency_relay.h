@@ -44,7 +44,7 @@ typedef struct {
 	TickType_t minTime;
 	TickType_t maxTime;
 	TickType_t avgTime;
-	int count;								// total measurements taken
+	uint32_t count;						// total measurements taken
 } timingLog_t;
 
 typedef struct {
@@ -55,9 +55,9 @@ typedef struct {
 } system_status_t;
 
 extern freqData_t freq_data;
-extern loadStatus_t load_status[NUM_LOADS];
-extern systemState_t system_state;
-extern timingLog_t timing_log;
+extern loadStatus_t loadStatus[NUM_LOADS];
+extern systemState_t systemState;
+extern timingLog_t timingLog;
 
 extern float thresholdFreq;
 extern float thresholdROCF;

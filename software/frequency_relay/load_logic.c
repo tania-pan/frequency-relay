@@ -13,14 +13,14 @@ static int shedNextLoad(void) {
     int shedIndex = -1;
     for (int i = 0; i < NUM_LOADS; i++) {
         // find lowest priority ON load
-        if (load_status[i] == LOAD_ON) {
+        if (loadStatus[i] == LOAD_ON) {
             shedIndex = i;
             break;
         }
     }
 
     if (shedIndex >= 0) {
-        load_status[shedIndex] = LOAD_SHED;
+        loadStatus[shedIndex] = LOAD_SHED;
         updateLEDs();
     }
     xSemaphoreGive(loadStatusMutex);
@@ -35,7 +35,7 @@ static int reconnectNextLoad(void) {
 
     for (int i = NUM_LOADS - 1; i >= 0; i--) {
         // find highest priority SHED load
-        if (load_status[i] == LOAD_SHED) {
+        if (loadStatus[i] == LOAD_SHED) {
             reconnectIndex = i;
             break;
         }
@@ -47,11 +47,11 @@ static int reconnectNextLoad(void) {
         int switchOn = (switchState >> reconnectIndex) & 0x1;
 
         if (switchOn) {
-            load_status[reconnectIndex] = LOAD_ON;
+            loadStatus[reconnectIndex] = LOAD_ON;
             updateLEDs();
         } else {
             // if user flipped switch off while it was shed
-            load_status[reconnectIndex] = LOAD_OFF;
+            loadStatus[reconnectIndex] = LOAD_OFF;
             updateLEDs();
         }
    
@@ -59,4 +59,21 @@ static int reconnectNextLoad(void) {
     }
 
     return reconnectIndex; // return index of reconnected load or -1 if no load to reconnect
+}
+
+// check if all loads are reconnected
+static int allLoadsReconnected(void) {
+    int reconnected = 1;
+
+    xSemaphoreTake(loadStatusMutex, portMAX_DELAY);
+
+    for (int i = 0; i < NUM_LOADS; i++) {
+        if (loadStatus[i] == LOAD_SHED) {
+            reconnected = 0;
+            break;
+        }
+    }
+
+    xSemaphoreGive(loadStatusMutex);
+    return reconnected;
 }
