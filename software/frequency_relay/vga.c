@@ -1,4 +1,8 @@
-    // vga.c
+// vga.c
+#include "frequency_relay.h"
+
+#include "vga.h"
+#include "types.h"
 
     void vga_display_task(void *pvParameters) {
         // grab char buffer device handle from pv params

@@ -3,6 +3,13 @@
 #ifndef __TYPES_H_
 #define __TYPES_H_
 
+#include "../frequency_relay_bsp/HAL/inc/alt_types.h"
+#include <stdint.h>
+#include "FreeRTOS/portmacro.h"
+#include "config.h"
+
+enum Threshold {TF, TROC};
+
 typedef struct {
 	float frequency;		// in Hz
 	float roc; 				// rate of change of frequency in Hz/s

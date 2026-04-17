@@ -11,9 +11,7 @@
 #define PS2_DOWN 0x72
 #define PS2_BREAK 0xF0
 
-enum Threshold {TF, TROC};
-
-vga_display_task(void *pvParameters);
+void vga_display_task(void *pvParameters);
 
 #endif  /* __VGA_H_ */
 

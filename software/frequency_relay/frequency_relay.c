@@ -1,35 +1,11 @@
 // frequency_relay.c
-// standard includes
-#include <stddef.h>
-#include <stdio.h>	
-#include <stdint.h>
-#include <string.h>
-
-// scheduler includes
-#include "FreeRTOS/portmacro.h"
-#include "FreeRTOS/projdefs.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/portmacro.h"
-#include "freertos/projdefs.h"
-#include "freertos/task.h"
-#include "freertos/queue.h"
-#include "freertos/semphr.h"
-
-#include "../frequency_relay_bsp/drivers/inc/altera_avalon_pio_regs.h"
-#include "../frequency_relay_bsp/drivers/inc/altera_up_avalon_video_character_buffer_with_dma.h"
-#include "../frequency_relay_bsp/drivers/inc/altera_up_avalon_video_pixel_buffer_dma.h"
-#include "../frequency_relay_bsp/drivers/inc/altera_up_avalon_ps2_regs.h"
-#include "../frequency_relay_bsp/system.h"
-#include "../frequency_relay_bsp/HAL/inc/alt_types.h"
 
 // project includes
 #include "frequency_relay.h"
 #include "types.h"
+#include "config.h"
 #include "isr.h"
 #include "vga.h"
-
-// definition of task stacks
-#define TASK_STACKSIZE 2048
 
 // globals variables for FreeRTOS
 QueueHandle_t buttonCmdQ;

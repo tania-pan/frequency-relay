@@ -3,6 +3,8 @@
 #ifndef __ISR_H_
 #define __ISR_H_
 
+#include "types.h"
+
 void fau_isr(void* context, alt_u32 id);
 void button_isr(void* context, alt_u32 id);
 void kbd_isr(void* context, alt_u32 id);

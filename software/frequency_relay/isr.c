@@ -1,6 +1,7 @@
 // isr.c
 
 #include "isr.h"
+#include "frequency_relay.h"
 
 void fau_isr(void* context, alt_u32 id) {
 	// placeholder for return status of if a higher priority task
