@@ -1,7 +1,7 @@
-#include "frequency_relay.h"
 #include "freertos/FreeRTOS.h"
-#include "freertos/semphr.h"
+#include "frequency_relay.h"
 #include "freertos/queue.h"
+#include "freertos/semphr.h"
 
 void TaskFrequencyCalculation(void *pvParameters) {
     float f_old = 0.0f;
