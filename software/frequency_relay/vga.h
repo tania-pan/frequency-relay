@@ -1,5 +1,9 @@
+// vga.h
+
 #ifndef __VGA_H_
 #define __VGA_H_
+
+#include "types.h"
 
 #define PS2_1 0x16
 #define PS2_2 0x1E
