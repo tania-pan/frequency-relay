@@ -24,6 +24,9 @@
 
 // project includes
 #include "frequency_relay.h"
+#include "types.h"
+#include "isr.h"
+#include "vga.h"
 
 // definition of task stacks
 #define TASK_STACKSIZE 2048
@@ -36,7 +39,6 @@ QueueHandle_t freqDataQ;
 SemaphoreHandle_t peakReadySem;
 SemaphoreHandle_t loadStatusMutex;
 SemaphoreHandle_t systemStatusMutex;
-SemaphoreHandle_t loadStatusMutex;
 SemaphoreHandle_t timingLogMutex;
 
 loadStatus_t load_status[NUM_LOADS] = {LOAD_OFF, LOAD_OFF, LOAD_OFF, LOAD_OFF, LOAD_OFF};

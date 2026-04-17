@@ -14,7 +14,7 @@ void TaskFrequencyCalculation(void *pvParameters) {
         // block until ISR gives semaphore
         xSemaphoreTake(peakReadySem, portMAX_DELAY);
 
-        unsigned int N = latestN;   // read N that ISR stored
+        unsigned int N = freq_data.n;   // read N that ISR stored
         if (N == 0) continue;       // avoid division by zero
 
         // calculate frequency

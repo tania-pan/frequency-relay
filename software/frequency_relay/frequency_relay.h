@@ -33,11 +33,6 @@ extern SemaphoreHandle_t loadStatusMutex;
 extern SemaphoreHandle_t systemStatusMutex;
 extern SemaphoreHandle_t timingLogMutex;
 
-// ISR functions
-void fau_isr(void* context, alt_u32 id);
-void button_isr(void* context, alt_u32 id);
-void kbd_isr(void* context, alt_u32 id);
-
 void init_config(void);
 void TestFAUTask(void *pvParameters);
 void TaskFrequencyCalculation(void *pvParameters);
