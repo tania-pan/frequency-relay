@@ -12,6 +12,14 @@
 #define NUM_LOADS 5
 #define TIMING_LOG_SIZE 5
 
+#define PS2_1 0x16
+#define PS2_2 0x1E
+#define PS2_UP 0x75
+#define PS2_DOWN 0x72
+#define PS2_BREAK 0xF0
+
+enum Threshold {TF, TROC};
+
 typedef struct {
 	float frequency;		// in Hz
 	float roc; 				// rate of change of frequency in Hz/s
@@ -36,8 +44,15 @@ typedef struct {
 	TickType_t minTime;
 	TickType_t maxTime;
 	TickType_t avgTime;
-int count;								// total measurements taken
+	int count;								// total measurements taken
 } timingLog_t;
+
+typedef struct {
+	float TF_threshold;
+	float TROC_threshold;
+	enum Threshold threshold_edit_mode;
+	systemState_t system_state;
+} system_status_t;
 
 extern freqData_t freq_data;
 extern loadStatus_t load_status[NUM_LOADS];
@@ -55,6 +70,11 @@ extern SemaphoreHandle_t peakReadySem;
 extern SemaphoreHandle_t loadStatusMutex;
 extern SemaphoreHandle_t systemStatusMutex;
 extern SemaphoreHandle_t timingLogMutex;
+
+// ISR functions
+void fau_isr(void* context, alt_u32 id);
+void button_isr(void* context, alt_u32 id);
+void kbd_isr(void* context, alt_u32 id);
 
 void init_config(void);
 void TestFAUTask(void *pvParameters);

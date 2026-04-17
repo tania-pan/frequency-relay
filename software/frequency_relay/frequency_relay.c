@@ -1,16 +1,25 @@
 // standard includes
 #include <stddef.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <string.h>
 
 // scheduler includes
+#include "FreeRTOS/portmacro.h"
+#include "FreeRTOS/projdefs.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/portmacro.h"
+#include "freertos/projdefs.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
 #include "freertos/semphr.h"
 
 #include "../frequency_relay_bsp/drivers/inc/altera_avalon_pio_regs.h"
+#include "../frequency_relay_bsp/drivers/inc/altera_up_avalon_video_character_buffer_with_dma.h"
+#include "../frequency_relay_bsp/drivers/inc/altera_up_avalon_video_pixel_buffer_dma.h"
+#include "../frequency_relay_bsp/drivers/inc/altera_up_avalon_ps2_regs.h"
 #include "../frequency_relay_bsp/system.h"
+#include "../frequency_relay_bsp/HAL/inc/alt_types.h"
 
 // project includes
 #include "frequency_relay.h"
@@ -26,6 +35,7 @@ QueueHandle_t freqDataQ;
 SemaphoreHandle_t peakReadySem;
 SemaphoreHandle_t loadStatusMutex;
 SemaphoreHandle_t systemStatusMutex;
+SemaphoreHandle_t loadStatusMutex;
 SemaphoreHandle_t timingLogMutex;
 
 loadStatus_t load_status[NUM_LOADS] = {LOAD_OFF, LOAD_OFF, LOAD_OFF, LOAD_OFF, LOAD_OFF};
@@ -33,21 +43,207 @@ systemState_t system_state = SYSTEM_NORMAL;
 timingLog_t timing_log = {0};
 
 freqData_t freq_data;
+system_status_t system_status;
+
+void vga_display_task(void *pvParameters) {
+	// grab char buffer device handle from pv params
+	alt_up_char_buffer_dev *char_buffer = (alt_up_char_buffer_dev *)pvParameters;
+
+	// ~60Hz (17ms) timing setup
+	TickType_t xLastWakeTime = xTaskGetTickCount();
+	const TickType_t xFrequency = pdMS_TO_TICKS(17); // i DONT THINK FREQ IS ACCURATE
+
+	freqData_t local_freq_data;
+	system_status_t local_system_status;
+	int kbd_rx;
+	int ignore_next_key = 0; // track releases
+	char text_buffer[64];
+
+	printf("VGA Task Started\n");
+	fflush(stdout);
+
+	while(1) {
+		// -- process keyboard inputs --
+		while (xQueueReceive(kbdQ, &kbd_rx, 0) == pdTRUE) {
+
+			// check for if its a release code
+			if (kbd_rx == PS2_BREAK) {
+				ignore_next_key = 1;
+				continue;
+			}
+			// break sequence means code is repeated after PS2_BREAK
+			if (ignore_next_key) {
+				ignore_next_key = 0;
+				continue;
+			}
+
+			// -- lock system status to change struct members --
+			if (xSemaphoreTake(systemStatusMutex, 0) == pdTRUE) {
+				switch (kbd_rx) {
+					case PS2_1:
+						system_status.threshold_edit_mode = TF;
+						break;
+					case PS2_2:
+						system_status.threshold_edit_mode = TROC;
+						break;
+					case PS2_UP:
+						if (system_status.threshold_edit_mode) {
+							system_status.TROC_threshold += 0.5;
+						} else {
+							system_status.TF_threshold += 0.5;
+						}
+						break;
+					case PS2_DOWN:
+						if (system_status.threshold_edit_mode) {
+							system_status.TROC_threshold -= 0.5;
+						} else {
+							system_status.TF_threshold -= 0.5;
+						}
+						break;
+				}
+				// -- unlock semaphore --
+				xSemaphoreGive(systemStatusMutex);
+			}
+		}
+
+		// -- gather local copies of data for display --
+		// peak (don't steal from load management)
+		if (xQueuePeek(freqDataQ, &local_freq_data, 0) != pdTRUE) {
+			local_freq_data.frequency = 0;
+			local_freq_data.roc = 0;
+		}
+
+		// lock then grab
+		if (xSemaphoreTake(systemStatusMutex, portMAX_DELAY)) {
+			local_system_status = system_status;
+			xSemaphoreGive(systemStatusMutex);
+		}
+		if (xSemaphoreTake(loadStatusMutex, portMAX_DELAY)) {
+			// TODO: local_load_status =
+			xSemaphoreGive(loadStatusMutex);
+		}
+		if (xSemaphoreTake(timingLogMutex, portMAX_DELAY)) {
+			// TODO: local_timing_log = timing_log;
+			xSemaphoreGive(timingLogMutex);
+		}
+
+		// -- render VGA elements --
+		sprintf(text_buffer, "[%d] TF Threshold: %5.2f Hz    ", 
+			(1 - system_status.threshold_edit_mode), local_system_status.TF_threshold);
+		alt_up_char_buffer_string(char_buffer, text_buffer, 5, 5);
+		
+		sprintf(text_buffer, "[%d] TROC Threshold: %5.2f Hz/s    ", 
+			system_status.threshold_edit_mode, local_system_status.TROC_threshold);
+		alt_up_char_buffer_string(char_buffer, text_buffer, 5, 7);
+		
+		sprintf(text_buffer, "Current Frequency: %f Hz    ", local_freq_data.frequency);
+		alt_up_char_buffer_string(char_buffer, text_buffer, 5, 9);
+
+		sprintf(text_buffer, "Current RoC: %f Hz/s    ", local_freq_data.roc);
+		alt_up_char_buffer_string(char_buffer, text_buffer, 5, 11);
+
+		// TODO: add load and timing stats here
+
+		vTaskDelayUntil(&xLastWakeTime, xFrequency);
+	}
+}
+
+void fau_isr(void* context, alt_u32 id) {
+	// placeholder for return status of if a higher priority task
+	// was blocked from a resource liberated in this ISR
+	BaseType_t xHigherPriorityTask = pdFALSE;
+
+	// read 32 bit N counter from FAU
+	freq_data.n = IORD_ALTERA_AVALON_PIO_DATA(FREQUENCY_ANALYSER_BASE);
+
+	// give the semaphore (aka signal to the task that data is available)
+	// also if there is a higher priority task waiting on that resource
+	// set xHigherPriorityTask high
+	xSemaphoreGiveFromISR(peakReadSem, &xHigherPriorityTask);
+
+	// if there is a higher priority task, switch to it before resuming
+	portEND_SWITCHING_ISR(xHigherPriorityTask);
+
+}
+
+void button_isr(void* context, alt_u32 id) {
+	// placeholder for return status of if a higher priority task
+	// was blocked from a resource liberated in this ISR
+	BaseType_t xHigherPriorityTask = pdFALSE;
+
+	int button_input = IORD_ALTERA_AVALON_PIO_DATA(PUSH_BUTTON_BASE);
+
+	// clear the hardware interrupt
+	IOWR_ALTERA_AVALON_PIO_EDGE_CAP(PUSH_BUTTON_BASE, 0xF);
+
+	// add data to mailbox, if higher task blocked cause queue
+	// make xHigherPriorityTask = pdTRUE
+	xQueueSendFromISR(buttonCmdQ, &button_input, &xHigherPriorityTask);
+
+	// if there is a higher priority task, switch to it before resuming
+	portEND_SWITCHING_ISR(xHigherPriorityTask);
+}
+
+void kbd_isr(void* context, alt_u32 id) {
+	(void)context;
+	(void)id;
+	BaseType_t xHigherPriorityTask = pdFALSE;
+
+	// read the full 32bit register
+	uint32_t ps2_reg = IORD_ALT_UP_PS2_PORT_DATA_REG(PS2_BASE);
+
+	// bit 15 is RVALID (if data valid)
+	if (ps2_reg & 0x8000) {
+		// extract only the 8bit key code (0-7)
+		int key_code = ps2_reg & 0xFF;
+
+		xQueueSendFromISR(kbdQ, &key_code, &xHigherPriorityTask);
+	}
+
+	portEND_SWITCHING_ISR(xHigherPriorityTask);
+}
+
+void debug_consumer_task(void *pvParameters) {
+	// TODO: remove once tested and working correctly
+	int button_rx;
+	int kbd_rx;
+
+	printf("Debug task: waiting for ISR triggers");
+
+	while(1) {
+		// check semaphore if new resource has appeared
+		if (xSemaphoreTake(peakReadSem, 0)) {
+//			printf("FAU semaphore accessed\n");
+		}
+		// check button queue
+		if (xQueueReceive(buttonCmdQ, &button_rx, 0) == pdTRUE) {
+			printf("Button queue accessed: Value = %u\n", button_rx);
+		}
+		// check kbd queue
+		if (xQueueReceive(kbdQ, &kbd_rx, 0) == pdTRUE) {
+			printf("Keyboard queue accessed: Value = %u\n", kbd_rx);
+		}
+
+		// yield to scheduler for 50ms
+		vTaskDelay(pdMS_TO_TICKS(50));
+	}
+}
 
 float thresholdFreq;
 float thresholdROCF;
 volatile unsigned int latestN;
 
 void init_config(void) {
-	// init global data
+	// -- global data --
 	freq_data.frequency = 0;
 	freq_data.roc = 0;
 	freq_data.n = 0;
 	freq_data.timestamp = 0;
 
-	thresholdFreq = 49.0f;
-	thresholdROCF = 1.0f;
-	latestN = 0;
+	system_status.TF_threshold = 50.0;
+	system_status.TROC_threshold= 10.0;
+	system_status.threshold_edit_mode = TF;
+	system_status.system_state = SYSTEM_NORMAL;
 
 	buttonCmdQ = xQueueCreate(BUTTON_Q_LENGTH, sizeof(int));
 	kbdQ = xQueueCreate(KBD_Q_LENGTH, sizeof(int));
@@ -63,15 +259,67 @@ void init_config(void) {
 	peakReadySem == NULL || loadStatusMutex == NULL || systemStatusMutex == NULL ||
 	timingLogMutex == NULL) {
 		printf("Fatal Error: Failed to create FreeRTOS primitives.\n");
+		fflush(stdout);
 		for (;;); // halt on fatal error
 	}
+
+	// enable interrupts for button PIO
+	IOWR_ALTERA_AVALON_PIO_IRQ_MASK(PUSH_BUTTON_BASE, 0xF);
+	// clear any pending buttons
+	IOWR_ALTERA_AVALON_PIO_EDGE_CAP(PUSH_BUTTON_BASE, 0xF);
+
+	// enable read interrupts for PS2 KBD
+	IOWR_ALT_UP_PS2_PORT_CTRL_REG(PS2_BASE, 1);
+
+	// link the IRQs to our routines
+	alt_irq_register(FREQUENCY_ANALYSER_IRQ, NULL, fau_isr);
+	alt_irq_register(PUSH_BUTTON_IRQ, NULL, button_isr);
+	alt_irq_register(PS2_IRQ, NULL, kbd_isr);
+
+	// create debug task for testing ISRs
+	xTaskCreate(debug_consumer_task, "DebugTask", TASK_STACKSIZE, NULL, 1, NULL);
+	
+	// -- vga display --
+	// open pixel buffer
+	alt_up_pixel_buffer_dma_dev *pixel_buf;
+    pixel_buf = alt_up_pixel_buffer_dma_open_dev(VIDEO_PIXEL_BUFFER_DMA_NAME);
+    if(pixel_buf == NULL){
+        printf("Fatal Error: Cannot find pixel buffer device\n");
+        fflush(stdout);
+        for(;;);
+    }
+    alt_up_pixel_buffer_dma_clear_screen(pixel_buf, 0);
+    alt_up_pixel_buffer_dma_clear_screen(pixel_buf, 1);
+
+	// open char buffer
+	alt_up_char_buffer_dev *char_buffer_dev;
+	char_buffer_dev = alt_up_char_buffer_open_dev("/dev/video_character_buffer_with_dma");
+
+	if (char_buffer_dev == NULL) {
+		printf("Fatal Error: Could not open character buffer device.\n");
+		fflush(stdout);
+		for(;;);
+	}
+
+	alt_up_char_buffer_clear(char_buffer_dev);
+
+	xTaskCreate(
+		vga_display_task,
+		"VGATask",
+		TASK_STACKSIZE,
+		(void*)char_buffer_dev,
+		3,
+		NULL
+	);
 }
 
 int main(int argc, char* argv[], char* envp[]) {
-	
-	// init config (global variables, queues, semaphores)
+	printf("System booting...\n");
+	fflush(stdout);
+
 	init_config();
 	printf("Initialization Complete.\n");
+	fflush(stdout);
 
 	// create tasks
 	xTaskCreate(TaskFrequencyCalculation, 
@@ -88,6 +336,7 @@ int main(int argc, char* argv[], char* envp[]) {
 
 	// if scheduler returns, not enough FreeRTOS heap memory
 	printf("Fatal Error: Insufficient FreeRTOS heap to start scheduler.\n");
+	fflush(stdout);
 	for (;;);
 	return 0;
 }

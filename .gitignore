@@ -12,8 +12,6 @@ obj/
 *.objdump
 *.map
 *.hex
-*.pof
-*.sof
 *.srec
 
 # OS generated files
