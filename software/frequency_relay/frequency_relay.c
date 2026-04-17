@@ -321,6 +321,8 @@ int main(int argc, char* argv[], char* envp[]) {
 	printf("Initialization Complete.\n");
 	fflush(stdout);
 
+	initTimer();
+
 	// create tasks
 	xTaskCreate(TaskFrequencyCalculation, 
 				"FreqCalc", 

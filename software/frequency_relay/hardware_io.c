@@ -1,5 +1,5 @@
 #include "freertos/FreeRTOS.h"
-#include "semphr.h"
+#include "freertos/semphr.h"
 
 #include "altera_avalon_pio_regs.h"
 #include "system.h"
@@ -17,8 +17,8 @@ static void updateLEDs(void) {
     // wait for mutex before reading shared load status
     xSemaphoreTake(loadStatusMutex, portMAX_DELAY);
 
-    for (int = 0; i < NUM_LOADS; i++) {
-        if (loadStates[i] == LOAD_ON) {
+    for (int i = 0; i < NUM_LOADS; i++) {
+        if (loadStatus[i] == LOAD_ON) {
             redMask |= (1 << i); // Set bit for red LED
         } else {
             greenMask |= (1 << i); // Set bit for green LED
@@ -43,7 +43,7 @@ static void pollSwitches(void) {
 
     systemState_t currentState;
     xSemaphoreTake(systemStatusMutex, portMAX_DELAY);
-    currentState = system_state;    // normal, maintenance, managing
+    currentState = systemState;    // normal, maintenance, managing
     xSemaphoreGive(systemStatusMutex);
 
     for (int i = 0; i < NUM_LOADS; i++) {
@@ -51,15 +51,15 @@ static void pollSwitches(void) {
         
         if (!switchOn) {
             // if switch is off, load must be off
-            load_status[i] = LOAD_OFF;
+            loadStatus[i] = LOAD_OFF;
         } else {
             // switch is on
             if (currentState == SYSTEM_MAINTENANCE) {
                 // maintenance bypasses relay
-                load_status[i] = LOAD_ON;
-            } else if (load_status[i] == LOAD_OFF) {
+                loadStatus[i] = LOAD_ON;
+            } else if (loadStatus[i] == LOAD_OFF) {
                 // user flips switch
-                load_status[i] = LOAD_ON;
+                loadStatus[i] = LOAD_ON;
             }
         }
     }

@@ -5,6 +5,9 @@
 #include "freertos/task.h"
 #include "freertos/queue.h"
 #include "freertos/semphr.h"
+#include "freertos/timers.h"
+
+#include "stdbool.h"
 
 #define BUTTON_Q_LENGTH 10
 #define KBD_Q_LENGTH 10
@@ -57,6 +60,7 @@ typedef struct {
 extern freqData_t freq_data;
 extern loadStatus_t loadStatus[NUM_LOADS];
 extern systemState_t systemState;
+extern bool networkUnstable;
 extern timingLog_t timingLog;
 
 extern float thresholdFreq;
@@ -70,6 +74,7 @@ extern SemaphoreHandle_t peakReadySem;
 extern SemaphoreHandle_t loadStatusMutex;
 extern SemaphoreHandle_t systemStatusMutex;
 extern SemaphoreHandle_t timingLogMutex;
+extern TimerHandle_t timer500ms;
 
 // ISR functions
 void fau_isr(void* context, alt_u32 id);
@@ -77,6 +82,7 @@ void button_isr(void* context, alt_u32 id);
 void kbd_isr(void* context, alt_u32 id);
 
 void init_config(void);
+void initTimer(void);
 void TestFAUTask(void *pvParameters);
 void TaskFrequencyCalculation(void *pvParameters);
 

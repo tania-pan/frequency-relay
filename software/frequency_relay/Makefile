@@ -153,6 +153,10 @@ C_SRCS += FreeRTOS/timers.c
 C_SRCS += frequency_relay.c
 C_SRCS += task_freq_calc.c
 C_SRCS += testfau.c
+C_SRCS += hardware_io.c
+C_SRCS += load_logic.c
+C_SRCS += task_load_management.c
+C_SRCS += timing.c
 CXX_SRCS :=
 ASM_SRCS := FreeRTOS/port_asm.S
 
