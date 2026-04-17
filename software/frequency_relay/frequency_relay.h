@@ -12,14 +12,6 @@
 #define NUM_LOADS 5
 #define TIMING_LOG_SIZE 5
 
-#define PS2_1 0x16
-#define PS2_2 0x1E
-#define PS2_UP 0x75
-#define PS2_DOWN 0x72
-#define PS2_BREAK 0xF0
-
-enum Threshold {TF, TROC};
-
 typedef struct {
 	float frequency;		// in Hz
 	float roc; 				// rate of change of frequency in Hz/s
