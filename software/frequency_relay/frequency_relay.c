@@ -32,10 +32,15 @@ QueueHandle_t buttonCmdQ;
 QueueHandle_t kbdQ;
 QueueHandle_t freqDataQ;
 
-SemaphoreHandle_t peakReadSem;
+SemaphoreHandle_t peakReadySem;
+SemaphoreHandle_t loadStatusMutex;
 SemaphoreHandle_t systemStatusMutex;
 SemaphoreHandle_t loadStatusMutex;
 SemaphoreHandle_t timingLogMutex;
+
+loadStatus_t load_status[NUM_LOADS] = {LOAD_OFF, LOAD_OFF, LOAD_OFF, LOAD_OFF, LOAD_OFF};
+systemState_t system_state = SYSTEM_NORMAL;
+timingLog_t timing_log = {0};
 
 freqData_t freq_data;
 system_status_t system_status;
@@ -101,7 +106,7 @@ void vga_display_task(void *pvParameters) {
 			}
 		}
 
-		// -- gather local copies of data --
+		// -- gather local copies of data for display --
 		// peak (don't steal from load management)
 		if (xQueuePeek(freqDataQ, &local_freq_data, 0) != pdTRUE) {
 			local_freq_data.frequency = 0;
@@ -131,10 +136,10 @@ void vga_display_task(void *pvParameters) {
 			system_status.threshold_edit_mode, local_system_status.TROC_threshold);
 		alt_up_char_buffer_string(char_buffer, text_buffer, 5, 7);
 		
-		sprintf(text_buffer, "Current Frequency: %d Hz    ", local_freq_data.frequency);
+		sprintf(text_buffer, "Current Frequency: %f Hz    ", local_freq_data.frequency);
 		alt_up_char_buffer_string(char_buffer, text_buffer, 5, 9);
 
-		sprintf(text_buffer, "Current RoC: %d Hz/s    ", local_freq_data.roc);
+		sprintf(text_buffer, "Current RoC: %f Hz/s    ", local_freq_data.roc);
 		alt_up_char_buffer_string(char_buffer, text_buffer, 5, 11);
 
 		// TODO: add load and timing stats here
@@ -154,7 +159,7 @@ void fau_isr(void* context, alt_u32 id) {
 	// give the semaphore (aka signal to the task that data is available)
 	// also if there is a higher priority task waiting on that resource
 	// set xHigherPriorityTask high
-	xSemaphoreGiveFromISR(peakReadSem, &xHigherPriorityTask);
+	xSemaphoreGiveFromISR(peakReadySem, &xHigherPriorityTask);
 
 	// if there is a higher priority task, switch to it before resuming
 	portEND_SWITCHING_ISR(xHigherPriorityTask);
@@ -207,7 +212,7 @@ void debug_consumer_task(void *pvParameters) {
 
 	while(1) {
 		// check semaphore if new resource has appeared
-		if (xSemaphoreTake(peakReadSem, 0)) {
+		if (xSemaphoreTake(peakReadySem, 0)) {
 //			printf("FAU semaphore accessed\n");
 		}
 		// check button queue
@@ -224,6 +229,10 @@ void debug_consumer_task(void *pvParameters) {
 	}
 }
 
+float thresholdFreq;
+float thresholdROCF;
+volatile unsigned int latestN;
+
 void init_config(void) {
 	// -- global data --
 	freq_data.frequency = 0;
@@ -234,20 +243,20 @@ void init_config(void) {
 	system_status.TF_threshold = 50.0;
 	system_status.TROC_threshold= 10.0;
 	system_status.threshold_edit_mode = TF;
-	system_status.system_mode = NORMAL;
+	system_status.system_state = SYSTEM_NORMAL;
 
 	buttonCmdQ = xQueueCreate(BUTTON_Q_LENGTH, sizeof(int));
 	kbdQ = xQueueCreate(KBD_Q_LENGTH, sizeof(int));
 	freqDataQ = xQueueCreate(FREQDATA_Q_LENGTH, sizeof(freqData_t));
 
-	peakReadSem = xSemaphoreCreateBinary();
+	peakReadySem = xSemaphoreCreateBinary();
 	loadStatusMutex = xSemaphoreCreateMutex();
 	systemStatusMutex = xSemaphoreCreateMutex();
 	timingLogMutex = xSemaphoreCreateMutex();
 
 	// check for any init failures
 	if (buttonCmdQ == NULL || kbdQ == NULL || freqDataQ == NULL ||
-	peakReadSem == NULL || loadStatusMutex == NULL || systemStatusMutex == NULL ||
+	peakReadySem == NULL || loadStatusMutex == NULL || systemStatusMutex == NULL ||
 	timingLogMutex == NULL) {
 		printf("Fatal Error: Failed to create FreeRTOS primitives.\n");
 		fflush(stdout);
@@ -309,11 +318,20 @@ int main(int argc, char* argv[], char* envp[]) {
 	fflush(stdout);
 
 	init_config();
-
 	printf("Initialization Complete.\n");
 	fflush(stdout);
 
-	// Start Scheduler
+	// create tasks
+	xTaskCreate(TaskFrequencyCalculation, 
+				"FreqCalc", 
+				1000, 
+				NULL, 
+				1, 		// priority
+				NULL);
+
+	xTaskCreate(TestFAUTask, "TestFAU", 500, NULL, 3, NULL);
+
+	// start Scheduler
 	vTaskStartScheduler();
 
 	// if scheduler returns, not enough FreeRTOS heap memory
