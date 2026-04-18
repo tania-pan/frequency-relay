@@ -157,6 +157,8 @@ C_SRCS += hardware_io.c
 C_SRCS += load_logic.c
 C_SRCS += task_load_management.c
 C_SRCS += timing.c
+C_SRCS += isr.c
+C_SRCS += vga.c
 CXX_SRCS :=
 ASM_SRCS := FreeRTOS/port_asm.S
 

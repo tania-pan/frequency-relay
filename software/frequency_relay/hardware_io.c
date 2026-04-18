@@ -6,63 +6,63 @@
 
 #include "frequency_relay.h"
 
-static void updateLEDs(void) {
+static void update_leds(void) {
 
-    volatile int *redLEDs = (volatile int *) RED_LEDS_BASE;
-    volatile int *greenLEDs = (volatile int *) GREEN_LEDS_BASE;
+    volatile int *red_leds = (volatile int *) RED_LEDS_BASE;
+    volatile int *green_leds = (volatile int *) GREEN_LEDS_BASE;
 
-    int redMask = 0;
-    int greenMask = 0;
+    int red_mask = 0;
+    int green_mask = 0;
 
     // wait for mutex before reading shared load status
-    xSemaphoreTake(loadStatusMutex, portMAX_DELAY);
+    xSemaphoreTake(load_status_mutex, portMAX_DELAY);
 
     for (int i = 0; i < NUM_LOADS; i++) {
-        if (loadStatus[i] == LOAD_ON) {
-            redMask |= (1 << i); // Set bit for red LED
+        if (load_status[i] == LOAD_ON) {
+            red_mask |= (1 << i); // Set bit for red LED
         } else {
             greenMask |= (1 << i); // Set bit for green LED
         }
         // LOAD_OFF
     }
 
-    xSemaphoreGive(loadStatusMutex);
+    xSemaphoreGive(load_status_mutex);
 
     // Update the physical LEDs
-    *redLEDs = redMask;
-    *greenLEDs = greenMask;
+    *red_leds = red_mask;
+    *green_leds = gree_mask;
 }
 
 // poll the slide switches and update load status accordingly
-static void pollSwitches(void) {
+static void poll_switches(void) {
 
     // read switch states
-    uint32_t switchState = IORD_ALTERA_AVALON_PIO_DATA(SLIDE_SWITCH_BASE);
+    uint32_t switch_state = IORD_ALTERA_AVALON_PIO_DATA(SLIDE_SWITCH_BASE);
 
-    xSemaphoreTake(loadStatusMutex, portMAX_DELAY);
+    xSemaphoreTake(load_status_mutex, portMAX_DELAY);
 
-    systemState_t currentState;
-    xSemaphoreTake(systemStatusMutex, portMAX_DELAY);
-    currentState = systemState;    // normal, maintenance, managing
-    xSemaphoreGive(systemStatusMutex);
+    systemState_t current_state;
+    xSemaphoreTake(system_status_mutex, portMAX_DELAY);
+    current_state = system_state;    // normal, maintenance, managing
+    xSemaphoreGive(system_status_mutex);
 
     for (int i = 0; i < NUM_LOADS; i++) {
-        int switchOn = (switchState >> i) & 0x1; // check if switch i is on
+        int switch_on = (switch_state >> i) & 0x1; // check if switch i is on
         
-        if (!switchOn) {
+        if (!switch_on) {
             // if switch is off, load must be off
-            loadStatus[i] = LOAD_OFF;
+            load_status[i] = LOAD_OFF;
         } else {
             // switch is on
-            if (currentState == SYSTEM_MAINTENANCE) {
+            if (current_state == SYSTEM_MAINTENANCE) {
                 // maintenance bypasses relay
-                loadStatus[i] = LOAD_ON;
-            } else if (loadStatus[i] == LOAD_OFF) {
+                load_status[i] = LOAD_ON;
+            } else if (load_status[i] == LOAD_OFF) {
                 // user flips switch
-                loadStatus[i] = LOAD_ON;
+                load_status[i] = LOAD_ON;
             }
         }
     }
 
-    xSemaphoreGive(loadStatusMutex);
+    xSemaphoreGive(load_status_mutex);
 }

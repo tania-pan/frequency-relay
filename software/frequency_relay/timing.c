@@ -1,39 +1,38 @@
-#include "freertos/FreeRTOS.h"
-#include "freertos/semphr.h"
-#include "freertos/timers.h"
+#include "Freertos/FreeRTOS.h"
+#include "Freertos/semphr.h"
+#include "Freertos/timers.h"
 
 #include "frequency_relay.h"
 
-timingLog_t timingLog = { {0}, 0, 0, 0, 0 };
+timing_log_t timing_log = { {0}, 0, 0, 0, 0 };
 
 // tracks how long it takes from a frequency violation to a load being shed
-static void recordTiming(TickType_t elapsedTicks) {
-    xSemaphoreTake(timingLogMutex, portMAX_DELAY);
-
+static void record_timing(TickType_t elapsed_ticks) {
+    xSemaphoreTake(timing_log_mutex, portMAX_DELAY);
     // shift recent array
     for (int i = TIMING_LOG_SIZE - 1; i > 0; i--) {
-        timingLog.recent[i] = timingLog.recent[i - 1];
+        timing_log.recent[i] = timing_log.recent[i - 1];
     }
-    timingLog.recent[0] = elapsedTicks;
+    timing_log.recent[0] = elapsed_ticks;
 
     // update min/max/avg
-    timingLog.count++;
-    if (timingLog.count == 1) {
-        timingLog.minTime = elapsedTicks;
-        timingLog.maxTime = elapsedTicks;
-        timingLog.avgTime = elapsedTicks;
+    timing_log.count++;
+    if (timing_log.count == 1) {
+        timing_log.minTime = elapsed_ticks;
+        timing_log.maxTime = elapsed_ticks;
+        timing_log.avgTime = elapsed_ticks;
     } else {
-        if (elapsedTicks < timingLog.minTime) {
-            timingLog.minTime = elapsedTicks;
+        if (elapsed_ticks < timing_log.minTime) {
+            timing_log.minTime = elapsed_ticks;
         }
-        if (elapsedTicks > timingLog.maxTime) {
-            timingLog.maxTime = elapsedTicks;
+        if (elapsed_ticks > timing_log.maxTime) {
+            timing_log.maxTime = elapsed_ticks;
 
         // incremental average calculation
-        timingLog.avgTime = (timingLog.avgTime * (timingLog.count - 1) + elapsedTicks) 
-                            / timingLog.count;
+        timing_log.avgTime = (timing_log.avgTime * (timing_log.count - 1) + elapsed_ticks) 
+                            / timing_log.count;
         }
     }
 
-    xSemaphoreGive(timingLogMutex);
+    xSemaphoreGive(timing_log_mutex);
 }
