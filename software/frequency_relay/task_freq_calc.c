@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 #include "frequency_relay.h"
-#include "freertos/FreeRTOS.h"
+#include "FreeRTOS/FreeRTOS.h"
 
 void TaskFrequencyCalculation(void *pvParameters) {
     float f_old = 0.0f;

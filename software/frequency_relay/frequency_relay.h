@@ -4,10 +4,10 @@
 #define __FREQUENCY_RELAY_H_
 
 #include "types.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/queue.h"
-#include "freertos/semphr.h"
+#include "FreeRTOS/FreeRTOS.h"
+#include "FreeRTOS/task.h"
+#include "FreeRTOS/queue.h"
+#include "FreeRTOS/semphr.h"
 
 extern freq_data_t freq_data;
 extern load_status_t load_status[NUM_LOADS];
