@@ -1,7 +1,7 @@
 // config.h
 
-#ifndef __CONFIG_H_
-#define __CONFIG_H_
+#ifndef __FREQ_CONFIG_H_
+#define __FREQ_CONFIG_H_
 
 // definition of task stacks
 #define TASK_STACKSIZE 2048
@@ -12,4 +12,4 @@
 #define NUM_LOADS 5
 #define TIMING_LOG_SIZE 5
 
-#endif  /* __CONFIG_H_ */
+#endif  /* __FREQ_CONFIG_H_ */
