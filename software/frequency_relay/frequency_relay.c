@@ -1,207 +1,34 @@
-// standard includes
-#include <stddef.h>
+// frequency_relay.c
+
 #include <stdio.h>
-#include <stdint.h>
-#include <string.h>
+#include <io.h>
 
-// scheduler includes
-#include "FreeRTOS/portmacro.h"
-#include "FreeRTOS/projdefs.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/portmacro.h"
-#include "freertos/projdefs.h"
-#include "freertos/task.h"
-#include "freertos/queue.h"
-#include "freertos/semphr.h"
-
+#include "../frequency_relay_bsp/system.h"
 #include "../frequency_relay_bsp/drivers/inc/altera_avalon_pio_regs.h"
+#include "../frequency_relay_bsp/drivers/inc/altera_up_avalon_ps2_regs.h"
 #include "../frequency_relay_bsp/drivers/inc/altera_up_avalon_video_character_buffer_with_dma.h"
 #include "../frequency_relay_bsp/drivers/inc/altera_up_avalon_video_pixel_buffer_dma.h"
-#include "../frequency_relay_bsp/drivers/inc/altera_up_avalon_ps2_regs.h"
-#include "../frequency_relay_bsp/system.h"
-#include "../frequency_relay_bsp/HAL/inc/alt_types.h"
 
-// project includes
 #include "frequency_relay.h"
-
-// definition of task stacks
-#define TASK_STACKSIZE 2048
+#include "config.h"
+#include "isr.h"
+#include "vga.h"
 
 // globals variables for FreeRTOS
-QueueHandle_t buttonCmdQ;
-QueueHandle_t kbdQ;
-QueueHandle_t freqDataQ;
+QueueHandle_t button_q;
+QueueHandle_t kbd_q;
+QueueHandle_t freq_data_q;
 
-SemaphoreHandle_t peakReadySem;
-SemaphoreHandle_t loadStatusMutex;
-SemaphoreHandle_t systemStatusMutex;
-SemaphoreHandle_t loadStatusMutex;
-SemaphoreHandle_t timingLogMutex;
+SemaphoreHandle_t peak_ready_sem;
+SemaphoreHandle_t load_status_mutex;
+SemaphoreHandle_t system_status_mutex;
+SemaphoreHandle_t timing_log_mutex;
 
-loadStatus_t load_status[NUM_LOADS] = {LOAD_OFF, LOAD_OFF, LOAD_OFF, LOAD_OFF, LOAD_OFF};
-systemState_t system_state = SYSTEM_NORMAL;
-timingLog_t timing_log = {0};
+load_status_t load_status[NUM_LOADS] = {LOAD_OFF, LOAD_OFF, LOAD_OFF, LOAD_OFF, LOAD_OFF};
+timing_log_t timing_log = {0};
 
-freqData_t freq_data;
+freq_data_t freq_data;
 system_status_t system_status;
-
-void vga_display_task(void *pvParameters) {
-	// grab char buffer device handle from pv params
-	alt_up_char_buffer_dev *char_buffer = (alt_up_char_buffer_dev *)pvParameters;
-
-	// ~60Hz (17ms) timing setup
-	TickType_t xLastWakeTime = xTaskGetTickCount();
-	const TickType_t xFrequency = pdMS_TO_TICKS(17); // i DONT THINK FREQ IS ACCURATE
-
-	freqData_t local_freq_data;
-	system_status_t local_system_status;
-	int kbd_rx;
-	int ignore_next_key = 0; // track releases
-	char text_buffer[64];
-
-	printf("VGA Task Started\n");
-	fflush(stdout);
-
-	while(1) {
-		// -- process keyboard inputs --
-		while (xQueueReceive(kbdQ, &kbd_rx, 0) == pdTRUE) {
-
-			// check for if its a release code
-			if (kbd_rx == PS2_BREAK) {
-				ignore_next_key = 1;
-				continue;
-			}
-			// break sequence means code is repeated after PS2_BREAK
-			if (ignore_next_key) {
-				ignore_next_key = 0;
-				continue;
-			}
-
-			// -- lock system status to change struct members --
-			if (xSemaphoreTake(systemStatusMutex, 0) == pdTRUE) {
-				switch (kbd_rx) {
-					case PS2_1:
-						system_status.threshold_edit_mode = TF;
-						break;
-					case PS2_2:
-						system_status.threshold_edit_mode = TROC;
-						break;
-					case PS2_UP:
-						if (system_status.threshold_edit_mode) {
-							system_status.TROC_threshold += 0.5;
-						} else {
-							system_status.TF_threshold += 0.5;
-						}
-						break;
-					case PS2_DOWN:
-						if (system_status.threshold_edit_mode) {
-							system_status.TROC_threshold -= 0.5;
-						} else {
-							system_status.TF_threshold -= 0.5;
-						}
-						break;
-				}
-				// -- unlock semaphore --
-				xSemaphoreGive(systemStatusMutex);
-			}
-		}
-
-		// -- gather local copies of data for display --
-		// peak (don't steal from load management)
-		if (xQueuePeek(freqDataQ, &local_freq_data, 0) != pdTRUE) {
-			local_freq_data.frequency = 0;
-			local_freq_data.roc = 0;
-		}
-
-		// lock then grab
-		if (xSemaphoreTake(systemStatusMutex, portMAX_DELAY)) {
-			local_system_status = system_status;
-			xSemaphoreGive(systemStatusMutex);
-		}
-		if (xSemaphoreTake(loadStatusMutex, portMAX_DELAY)) {
-			// TODO: local_load_status =
-			xSemaphoreGive(loadStatusMutex);
-		}
-		if (xSemaphoreTake(timingLogMutex, portMAX_DELAY)) {
-			// TODO: local_timing_log = timing_log;
-			xSemaphoreGive(timingLogMutex);
-		}
-
-		// -- render VGA elements --
-		sprintf(text_buffer, "[%d] TF Threshold: %5.2f Hz    ", 
-			(1 - system_status.threshold_edit_mode), local_system_status.TF_threshold);
-		alt_up_char_buffer_string(char_buffer, text_buffer, 5, 5);
-		
-		sprintf(text_buffer, "[%d] TROC Threshold: %5.2f Hz/s    ", 
-			system_status.threshold_edit_mode, local_system_status.TROC_threshold);
-		alt_up_char_buffer_string(char_buffer, text_buffer, 5, 7);
-		
-		sprintf(text_buffer, "Current Frequency: %f Hz    ", local_freq_data.frequency);
-		alt_up_char_buffer_string(char_buffer, text_buffer, 5, 9);
-
-		sprintf(text_buffer, "Current RoC: %f Hz/s    ", local_freq_data.roc);
-		alt_up_char_buffer_string(char_buffer, text_buffer, 5, 11);
-
-		// TODO: add load and timing stats here
-
-		vTaskDelayUntil(&xLastWakeTime, xFrequency);
-	}
-}
-
-void fau_isr(void* context, alt_u32 id) {
-	// placeholder for return status of if a higher priority task
-	// was blocked from a resource liberated in this ISR
-	BaseType_t xHigherPriorityTask = pdFALSE;
-
-	// read 32 bit N counter from FAU
-	freq_data.n = IORD_ALTERA_AVALON_PIO_DATA(FREQUENCY_ANALYSER_BASE);
-
-	// give the semaphore (aka signal to the task that data is available)
-	// also if there is a higher priority task waiting on that resource
-	// set xHigherPriorityTask high
-	xSemaphoreGiveFromISR(peakReadySem, &xHigherPriorityTask);
-
-	// if there is a higher priority task, switch to it before resuming
-	portEND_SWITCHING_ISR(xHigherPriorityTask);
-
-}
-
-void button_isr(void* context, alt_u32 id) {
-	// placeholder for return status of if a higher priority task
-	// was blocked from a resource liberated in this ISR
-	BaseType_t xHigherPriorityTask = pdFALSE;
-
-	int button_input = IORD_ALTERA_AVALON_PIO_DATA(PUSH_BUTTON_BASE);
-
-	// clear the hardware interrupt
-	IOWR_ALTERA_AVALON_PIO_EDGE_CAP(PUSH_BUTTON_BASE, 0xF);
-
-	// add data to mailbox, if higher task blocked cause queue
-	// make xHigherPriorityTask = pdTRUE
-	xQueueSendFromISR(buttonCmdQ, &button_input, &xHigherPriorityTask);
-
-	// if there is a higher priority task, switch to it before resuming
-	portEND_SWITCHING_ISR(xHigherPriorityTask);
-}
-
-void kbd_isr(void* context, alt_u32 id) {
-	(void)context;
-	(void)id;
-	BaseType_t xHigherPriorityTask = pdFALSE;
-
-	// read the full 32bit register
-	uint32_t ps2_reg = IORD_ALT_UP_PS2_PORT_DATA_REG(PS2_BASE);
-
-	// bit 15 is RVALID (if data valid)
-	if (ps2_reg & 0x8000) {
-		// extract only the 8bit key code (0-7)
-		int key_code = ps2_reg & 0xFF;
-
-		xQueueSendFromISR(kbdQ, &key_code, &xHigherPriorityTask);
-	}
-
-	portEND_SWITCHING_ISR(xHigherPriorityTask);
-}
 
 void debug_consumer_task(void *pvParameters) {
 	// TODO: remove once tested and working correctly
@@ -212,15 +39,15 @@ void debug_consumer_task(void *pvParameters) {
 
 	while(1) {
 		// check semaphore if new resource has appeared
-		if (xSemaphoreTake(peakReadySem, 0)) {
+		if (xSemaphoreTake(peak_ready_sem, 0)) {
 //			printf("FAU semaphore accessed\n");
 		}
 		// check button queue
-		if (xQueueReceive(buttonCmdQ, &button_rx, 0) == pdTRUE) {
+		if (xQueueReceive(button_q, &button_rx, 0) == pdTRUE) {
 			printf("Button queue accessed: Value = %u\n", button_rx);
 		}
 		// check kbd queue
-		if (xQueueReceive(kbdQ, &kbd_rx, 0) == pdTRUE) {
+		if (xQueueReceive(kbd_q, &kbd_rx, 0) == pdTRUE) {
 			printf("Keyboard queue accessed: Value = %u\n", kbd_rx);
 		}
 
@@ -228,10 +55,6 @@ void debug_consumer_task(void *pvParameters) {
 		vTaskDelay(pdMS_TO_TICKS(50));
 	}
 }
-
-float thresholdFreq;
-float thresholdROCF;
-volatile unsigned int latestN;
 
 void init_config(void) {
 	// -- global data --
@@ -245,19 +68,19 @@ void init_config(void) {
 	system_status.threshold_edit_mode = TF;
 	system_status.system_state = SYSTEM_NORMAL;
 
-	buttonCmdQ = xQueueCreate(BUTTON_Q_LENGTH, sizeof(int));
-	kbdQ = xQueueCreate(KBD_Q_LENGTH, sizeof(int));
-	freqDataQ = xQueueCreate(FREQDATA_Q_LENGTH, sizeof(freqData_t));
+	button_q = xQueueCreate(BUTTON_Q_LENGTH, sizeof(int));
+	kbd_q = xQueueCreate(KBD_Q_LENGTH, sizeof(int));
+	freq_data_q = xQueueCreate(FREQDATA_Q_LENGTH, sizeof(freq_data_t));
 
-	peakReadySem = xSemaphoreCreateBinary();
-	loadStatusMutex = xSemaphoreCreateMutex();
-	systemStatusMutex = xSemaphoreCreateMutex();
-	timingLogMutex = xSemaphoreCreateMutex();
+	peak_ready_sem = xSemaphoreCreateBinary();
+	load_status_mutex = xSemaphoreCreateMutex();
+	system_status_mutex = xSemaphoreCreateMutex();
+	timing_log_mutex = xSemaphoreCreateMutex();
 
 	// check for any init failures
-	if (buttonCmdQ == NULL || kbdQ == NULL || freqDataQ == NULL ||
-	peakReadySem == NULL || loadStatusMutex == NULL || systemStatusMutex == NULL ||
-	timingLogMutex == NULL) {
+	if (button_q == NULL || kbd_q == NULL || freq_data_q == NULL ||
+	peak_ready_sem == NULL || load_status_mutex == NULL || system_status_mutex == NULL ||
+	timing_log_mutex == NULL) {
 		printf("Fatal Error: Failed to create FreeRTOS primitives.\n");
 		fflush(stdout);
 		for (;;); // halt on fatal error
@@ -320,16 +143,6 @@ int main(int argc, char* argv[], char* envp[]) {
 	init_config();
 	printf("Initialization Complete.\n");
 	fflush(stdout);
-
-	// create tasks
-	xTaskCreate(TaskFrequencyCalculation, 
-				"FreqCalc", 
-				1000, 
-				NULL, 
-				1, 		// priority
-				NULL);
-
-	xTaskCreate(TestFAUTask, "TestFAU", 500, NULL, 3, NULL);
 
 	// start Scheduler
 	vTaskStartScheduler();

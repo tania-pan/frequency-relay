@@ -2,9 +2,9 @@
 <sch:Settings xmlns:sch="http://www.altera.com/embeddedsw/bsp/schema">
         <BspType>hal</BspType>
         <BspVersion>default</BspVersion>
-        <BspGeneratedTimeStamp>17/04/2026 9:45:56 PM</BspGeneratedTimeStamp>
-        <BspGeneratedUnixTimeStamp>1776419156839</BspGeneratedUnixTimeStamp>
-        <BspGeneratedLocation>C:\Users\cmot464\Documents\frequency-relay\software\frequency_relay_bsp</BspGeneratedLocation>
+        <BspGeneratedTimeStamp>18/04/2026 7:33:52 PM</BspGeneratedTimeStamp>
+        <BspGeneratedUnixTimeStamp>1776497632954</BspGeneratedUnixTimeStamp>
+        <BspGeneratedLocation>C:\Users\chris\Documents\aamystuff\frequency-relay\software\frequency_relay_bsp</BspGeneratedLocation>
         <BspSettingsFile>settings.bsp</BspSettingsFile>
         <SopcDesignFile>..\..\nios2.sopcinfo</SopcDesignFile>
         <JdiFile>default</JdiFile>
