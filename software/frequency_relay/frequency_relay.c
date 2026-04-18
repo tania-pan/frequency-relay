@@ -1,8 +1,22 @@
 // frequency_relay.c
 
 // project includes
+// #include "frequency_relay.h"
+// #include "types.h"
+// #include "config.h"
+// #include "isr.h"
+// #include "vga.h"
+
+#include <stdio.h>
+#include <io.h>
+
+#include "../frequency_relay_bsp/system.h"
+#include "../frequency_relay_bsp/drivers/inc/altera_avalon_pio_regs.h"
+#include "../frequency_relay_bsp/drivers/inc/altera_up_avalon_ps2_regs.h"
+#include "../frequency_relay_bsp/drivers/inc/altera_up_avalon_video_character_buffer_with_dma.h"
+#include "../frequency_relay_bsp/drivers/inc/altera_up_avalon_video_pixel_buffer_dma.h"
+
 #include "frequency_relay.h"
-#include "types.h"
 #include "config.h"
 #include "isr.h"
 #include "vga.h"

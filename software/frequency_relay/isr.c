@@ -1,5 +1,14 @@
 // isr.c
 
+// #include "isr.h"
+// #include "frequency_relay.h"
+
+#include <io.h>
+
+#include "../frequency_relay_bsp/system.h"
+#include "../frequency_relay_bsp/drivers/inc/altera_avalon_pio_regs.h"
+#include "../frequency_relay_bsp/drivers/inc/altera_up_avalon_ps2_regs.h"
+
 #include "isr.h"
 #include "frequency_relay.h"
 
