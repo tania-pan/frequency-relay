@@ -3,11 +3,9 @@
 #ifndef __TYPES_H_
 #define __TYPES_H_
 
-// #include "../frequency_relay_bsp/HAL/inc/alt_types.h"
 #include <stdint.h>
 #include "config.h"
 #include "FreeRTOS/FreeRTOS.h"
-// #include "FreeRTOS/portmacro.h"
 
 enum Threshold {TF, TROC};
 

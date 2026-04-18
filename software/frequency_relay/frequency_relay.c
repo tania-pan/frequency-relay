@@ -1,12 +1,5 @@
 // frequency_relay.c
 
-// project includes
-// #include "frequency_relay.h"
-// #include "types.h"
-// #include "config.h"
-// #include "isr.h"
-// #include "vga.h"
-
 #include <stdio.h>
 #include <io.h>
 

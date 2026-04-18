@@ -1,8 +1,4 @@
 // vga.c
-// #include "frequency_relay.h"
-
-// #include "vga.h"
-// #include "types.h"
 
 #include <stdio.h>
 

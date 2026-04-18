@@ -1,8 +1,5 @@
 // isr.c
 
-// #include "isr.h"
-// #include "frequency_relay.h"
-
 #include <io.h>
 
 #include "../frequency_relay_bsp/system.h"
