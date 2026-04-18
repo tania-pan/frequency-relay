@@ -18,10 +18,10 @@ void vga_display_task(void *pvParameters) {
     alt_up_char_buffer_dev *char_buffer = (alt_up_char_buffer_dev *)pvParameters;
 
     // ~60Hz (17ms) timing setup
-    TickType_t xLastWakeTime = xTaskGetTickCount();
-    const TickType_t xFrequency = pdMS_TO_TICKS(17); // i DONT THINK FREQ IS ACCURATE
+    TickType_t last_wake_ticks = xTaskGetTickCount();
+    const TickType_t freq_ticks = pdMS_TO_TICKS(17); // i DONT THINK FREQ IS ACCURATE
 
-    freqData_t local_freq_data;
+    freq_data_t local_freq_data;
     system_status_t local_system_status;
     int kbd_rx;
     int ignore_next_key = 0; // track releases
@@ -32,7 +32,7 @@ void vga_display_task(void *pvParameters) {
 
     while(1) {
         // -- process keyboard inputs --
-        while (xQueueReceive(kbdQ, &kbd_rx, 0) == pdTRUE) {
+        while (xQueueReceive(kbd_q, &kbd_rx, 0) == pdTRUE) {
 
             // check for if its a release code
             if (kbd_rx == PS2_BREAK) {
@@ -46,7 +46,7 @@ void vga_display_task(void *pvParameters) {
             }
 
             // -- lock system status to change struct members --
-            if (xSemaphoreTake(systemStatusMutex, 0) == pdTRUE) {
+            if (xSemaphoreTake(system_status_mutex, 0) == pdTRUE) {
                 switch (kbd_rx) {
                     case PS2_1:
                         system_status.threshold_edit_mode = TF;
@@ -70,29 +70,29 @@ void vga_display_task(void *pvParameters) {
                         break;
                 }
                 // -- unlock semaphore --
-                xSemaphoreGive(systemStatusMutex);
+                xSemaphoreGive(system_status_mutex);
             }
         }
 
         // -- gather local copies of data for display --
         // peak (don't steal from load management)
-            if (xQueuePeek(freqDataQ, &local_freq_data, 0) != pdTRUE) {
+            if (xQueuePeek(freq_data_q, &local_freq_data, 0) != pdTRUE) {
                 local_freq_data.frequency = 0;
                 local_freq_data.roc = 0;
             }
 
             // lock then grab
-            if (xSemaphoreTake(systemStatusMutex, portMAX_DELAY)) {
+            if (xSemaphoreTake(system_status_mutex, portMAX_DELAY)) {
                 local_system_status = system_status;
-                xSemaphoreGive(systemStatusMutex);
+                xSemaphoreGive(system_status_mutex);
             }
-            if (xSemaphoreTake(loadStatusMutex, portMAX_DELAY)) {
+            if (xSemaphoreTake(load_status_mutex, portMAX_DELAY)) {
                 // TODO: local_load_status =
-                xSemaphoreGive(loadStatusMutex);
+                xSemaphoreGive(load_status_mutex);
             }
-            if (xSemaphoreTake(timingLogMutex, portMAX_DELAY)) {
+            if (xSemaphoreTake(timing_log_mutex, portMAX_DELAY)) {
                 // TODO: local_timing_log = timing_log;
-                xSemaphoreGive(timingLogMutex);
+                xSemaphoreGive(timing_log_mutex);
             }
 
             // -- render VGA elements --
@@ -112,6 +112,6 @@ void vga_display_task(void *pvParameters) {
 
             // TODO: add load and timing stats here
 
-            vTaskDelayUntil(&xLastWakeTime, xFrequency);
+            vTaskDelayUntil(&last_wake_ticks, freq_ticks);
         }
     }

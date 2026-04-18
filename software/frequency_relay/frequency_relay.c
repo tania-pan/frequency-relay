@@ -22,20 +22,19 @@
 #include "vga.h"
 
 // globals variables for FreeRTOS
-QueueHandle_t buttonCmdQ;
-QueueHandle_t kbdQ;
-QueueHandle_t freqDataQ;
+QueueHandle_t button_q;
+QueueHandle_t kbd_q;
+QueueHandle_t freq_data_q;
 
-SemaphoreHandle_t peakReadySem;
-SemaphoreHandle_t loadStatusMutex;
-SemaphoreHandle_t systemStatusMutex;
-SemaphoreHandle_t timingLogMutex;
+SemaphoreHandle_t peak_ready_sem;
+SemaphoreHandle_t load_status_mutex;
+SemaphoreHandle_t system_status_mutex;
+SemaphoreHandle_t timing_log_mutex;
 
-loadStatus_t load_status[NUM_LOADS] = {LOAD_OFF, LOAD_OFF, LOAD_OFF, LOAD_OFF, LOAD_OFF};
-systemState_t system_state = SYSTEM_NORMAL;
-timingLog_t timing_log = {0};
+load_status_t load_status[NUM_LOADS] = {LOAD_OFF, LOAD_OFF, LOAD_OFF, LOAD_OFF, LOAD_OFF};
+timing_log_t timing_log = {0};
 
-freqData_t freq_data;
+freq_data_t freq_data;
 system_status_t system_status;
 
 void debug_consumer_task(void *pvParameters) {
@@ -47,15 +46,15 @@ void debug_consumer_task(void *pvParameters) {
 
 	while(1) {
 		// check semaphore if new resource has appeared
-		if (xSemaphoreTake(peakReadySem, 0)) {
+		if (xSemaphoreTake(peak_ready_sem, 0)) {
 //			printf("FAU semaphore accessed\n");
 		}
 		// check button queue
-		if (xQueueReceive(buttonCmdQ, &button_rx, 0) == pdTRUE) {
+		if (xQueueReceive(button_q, &button_rx, 0) == pdTRUE) {
 			printf("Button queue accessed: Value = %u\n", button_rx);
 		}
 		// check kbd queue
-		if (xQueueReceive(kbdQ, &kbd_rx, 0) == pdTRUE) {
+		if (xQueueReceive(kbd_q, &kbd_rx, 0) == pdTRUE) {
 			printf("Keyboard queue accessed: Value = %u\n", kbd_rx);
 		}
 
@@ -63,10 +62,6 @@ void debug_consumer_task(void *pvParameters) {
 		vTaskDelay(pdMS_TO_TICKS(50));
 	}
 }
-
-float thresholdFreq;
-float thresholdROCF;
-volatile unsigned int latestN;
 
 void init_config(void) {
 	// -- global data --
@@ -80,19 +75,19 @@ void init_config(void) {
 	system_status.threshold_edit_mode = TF;
 	system_status.system_state = SYSTEM_NORMAL;
 
-	buttonCmdQ = xQueueCreate(BUTTON_Q_LENGTH, sizeof(int));
-	kbdQ = xQueueCreate(KBD_Q_LENGTH, sizeof(int));
-	freqDataQ = xQueueCreate(FREQDATA_Q_LENGTH, sizeof(freqData_t));
+	button_q = xQueueCreate(BUTTON_Q_LENGTH, sizeof(int));
+	kbd_q = xQueueCreate(KBD_Q_LENGTH, sizeof(int));
+	freq_data_q = xQueueCreate(FREQDATA_Q_LENGTH, sizeof(freq_data_t));
 
-	peakReadySem = xSemaphoreCreateBinary();
-	loadStatusMutex = xSemaphoreCreateMutex();
-	systemStatusMutex = xSemaphoreCreateMutex();
-	timingLogMutex = xSemaphoreCreateMutex();
+	peak_ready_sem = xSemaphoreCreateBinary();
+	load_status_mutex = xSemaphoreCreateMutex();
+	system_status_mutex = xSemaphoreCreateMutex();
+	timing_log_mutex = xSemaphoreCreateMutex();
 
 	// check for any init failures
-	if (buttonCmdQ == NULL || kbdQ == NULL || freqDataQ == NULL ||
-	peakReadySem == NULL || loadStatusMutex == NULL || systemStatusMutex == NULL ||
-	timingLogMutex == NULL) {
+	if (button_q == NULL || kbd_q == NULL || freq_data_q == NULL ||
+	peak_ready_sem == NULL || load_status_mutex == NULL || system_status_mutex == NULL ||
+	timing_log_mutex == NULL) {
 		printf("Fatal Error: Failed to create FreeRTOS primitives.\n");
 		fflush(stdout);
 		for (;;); // halt on fatal error
@@ -155,16 +150,6 @@ int main(int argc, char* argv[], char* envp[]) {
 	init_config();
 	printf("Initialization Complete.\n");
 	fflush(stdout);
-
-	// create tasks
-	xTaskCreate(TaskFrequencyCalculation, 
-				"FreqCalc", 
-				1000, 
-				NULL, 
-				1, 		// priority
-				NULL);
-
-	xTaskCreate(TestFAUTask, "TestFAU", 500, NULL, 3, NULL);
 
 	// start Scheduler
 	vTaskStartScheduler();

@@ -29,22 +29,17 @@
 #include "freertos/queue.h"
 #include "freertos/semphr.h"
 
-extern freqData_t freq_data;
-extern loadStatus_t load_status[NUM_LOADS];
-extern systemState_t system_state;
-extern timingLog_t timing_log;
+extern freq_data_t freq_data;
+extern load_status_t load_status[NUM_LOADS];
+extern timing_log_t timing_log;
 
-extern float thresholdFreq;
-extern float thresholdROCF;
-extern volatile unsigned int latestN;
-
-extern QueueHandle_t buttonCmdQ;
-extern QueueHandle_t kbdQ;
-extern QueueHandle_t freqDataQ;
-extern SemaphoreHandle_t peakReadySem;
-extern SemaphoreHandle_t loadStatusMutex;
-extern SemaphoreHandle_t systemStatusMutex;
-extern SemaphoreHandle_t timingLogMutex;
+extern QueueHandle_t button_q;
+extern QueueHandle_t kbd_q;
+extern QueueHandle_t freq_data_q;
+extern SemaphoreHandle_t peak_ready_sem;
+extern SemaphoreHandle_t load_status_mutex;
+extern SemaphoreHandle_t system_status_mutex;
+extern SemaphoreHandle_t timing_log_mutex;
 
 void init_config(void);
 void TestFAUTask(void *pvParameters);
