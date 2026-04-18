@@ -1,8 +1,8 @@
 // task_freq_calc.c
 
 #include <stdio.h>
-#include "frequency_relay.h"
 #include "FreeRTOS/FreeRTOS.h"
+#include "frequency_relay.h"
 
 void task_frequency_calculation(void *pvParameters) {
     float f_old = 0.0f;

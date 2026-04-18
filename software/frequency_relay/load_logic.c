@@ -1,3 +1,5 @@
+// load_logic.c
+
 #include "Freertos/FreeRTOS.h"
 #include "Freertos/semphr.h"
 #include "Freertos/timers.h"
@@ -7,14 +9,13 @@
 
 #include "frequency_relay.h"
 
-TimerHandle_t timer_500ms = NULL;
 loadStatus_t load_status[NUM_LOADS] = {LOAD_OFF, LOAD_OFF, LOAD_OFF, LOAD_OFF, LOAD_OFF};
 systemState_t system_state = SYSTEM_NORMAL;
-volatile bool network_unstable = false; 
+TimerHandle_t timer_500ms = NULL;
 
 static void timer_500ms_callback(TimerHandle_t timer_500ms);
 
-void init_imer(void) {
+void init_timer(void) {
     timer_500ms = xTimerCreate(
         "Timer500ms",       // name for debugging
         pdMS_TO_TICKS(500), // convert 500ms to ticks

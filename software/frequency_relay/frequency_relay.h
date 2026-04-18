@@ -4,14 +4,13 @@
 #define __FREQUENCY_RELAY_H_
 
 #include "types.h"
-#include "stdbool.h"
 #include "FreeRTOS/FreeRTOS.h"
 #include "FreeRTOS/task.h"
 #include "FreeRTOS/queue.h"
 #include "FreeRTOS/semphr.h"
 #include "freertos/timers.h"
 
-extern bool network_unstable;
+extern int network_unstable;
 
 extern freq_data_t freq_data;
 extern load_status_t load_status[NUM_LOADS];
