@@ -160,6 +160,12 @@ void vga_display_task(void *pvParameters) {
         sprintf(text_buffer, "System Uptime: %u seconds      ", uptime_sec);
         alt_up_char_buffer_string(char_buffer, text_buffer, 45, 12);
 
+        // -- watermark --
+        sprintf(text_buffer, "LCFR CONTROL PANEL");
+        alt_up_char_buffer_string(char_buffer, text_buffer, 5, 50);
+        sprintf(text_buffer, "BY CHRIS M. & TANIA P.");
+        alt_up_char_buffer_string(char_buffer, text_buffer, 5, 52);
+
         vTaskDelayUntil(&last_wake_ticks, freq_ticks);
     }
 }
