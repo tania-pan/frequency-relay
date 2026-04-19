@@ -13,6 +13,8 @@
 #include "config.h"
 #include "isr.h"
 #include "vga.h"
+#include "task_freq_calc.h"
+#include "task_load_management.h"
 
 // globals variables for FreeRTOS
 QueueHandle_t button_q;
@@ -23,9 +25,6 @@ SemaphoreHandle_t peak_ready_sem;
 SemaphoreHandle_t load_status_mutex;
 SemaphoreHandle_t system_status_mutex;
 SemaphoreHandle_t timing_log_mutex;
-
-load_status_t load_status[NUM_LOADS] = {LOAD_OFF, LOAD_OFF, LOAD_OFF, LOAD_OFF, LOAD_OFF};
-timing_log_t timing_log = {0};
 
 freq_data_t freq_data;
 system_status_t system_status;
@@ -126,6 +125,21 @@ void init_config(void) {
 
 	alt_up_char_buffer_clear(char_buffer_dev);
 
+	// create tasks
+	xTaskCreate(task_frequency_calculation, 
+				"FreqCalc", 
+				1000, 
+				NULL, 
+				1, 		// priority
+				NULL);
+
+	xTaskCreate(task_load_management,
+				"LoadMgmt", 
+				1000, 
+				NULL, 
+				2, 		// priority
+				NULL);
+
 	xTaskCreate(
 		vga_display_task,
 		"VGATask",
@@ -143,18 +157,6 @@ int main(int argc, char* argv[], char* envp[]) {
 	init_config();
 	printf("Initialization Complete.\n");
 	fflush(stdout);
-
-	initTimer();
-
-	// create tasks
-	xTaskCreate(task_frequency_calculation, 
-				"FreqCalc", 
-				1000, 
-				NULL, 
-				1, 		// priority
-				NULL);
-
-	xTaskCreate(TestFAUTask, "TestFAU", 500, NULL, 3, NULL);
 
 	// start Scheduler
 	vTaskStartScheduler();
