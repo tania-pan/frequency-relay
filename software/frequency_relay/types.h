@@ -29,7 +29,7 @@ typedef enum {
 } system_state_t;
 
 typedef struct {
-	TickType_t recent[TIMING_LOG_SIZE];	// last 5 measurements
+	TickType_t recent[TIMING_LOG_SIZE];		// last 5 measurements
 	TickType_t min_time;
 	TickType_t max_time;
 	TickType_t avg_time;

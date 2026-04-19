@@ -15,10 +15,14 @@ void vga_display_task(void *pvParameters) {
 
     // ~60Hz (17ms) timing setup
     TickType_t last_wake_ticks = xTaskGetTickCount();
-    const TickType_t freq_ticks = pdMS_TO_TICKS(17); // i DONT THINK FREQ IS ACCURATE
+    const TickType_t freq_ticks = pdMS_TO_TICKS(17);
 
+    // local copy variables
     freq_data_t local_freq_data;
     system_status_t local_system_status;
+    load_status_t local_load_status[NUM_LOADS];
+    timing_log_t local_timing_log;
+    
     int kbd_rx;
     int ignore_next_key = 0; // track releases
     char text_buffer[64];
@@ -29,7 +33,6 @@ void vga_display_task(void *pvParameters) {
     while(1) {
         // -- process keyboard inputs --
         while (xQueueReceive(kbd_q, &kbd_rx, 0) == pdTRUE) {
-
             // check for if its a release code
             if (kbd_rx == PS2_BREAK) {
                 ignore_next_key = 1;
@@ -77,17 +80,19 @@ void vga_display_task(void *pvParameters) {
                 local_freq_data.roc = 0;
             }
 
-            // lock then grab
+        // lock then grab copy of system status to display
             if (xSemaphoreTake(system_status_mutex, portMAX_DELAY)) {
                 local_system_status = system_status;
                 xSemaphoreGive(system_status_mutex);
             }
             if (xSemaphoreTake(load_status_mutex, portMAX_DELAY)) {
-                // TODO: local_load_status =
+            for (int i = 0; i < NUM_LOADS; i++) {
+                local_load_status[i] = load_status[i];
+            }
                 xSemaphoreGive(load_status_mutex);
             }
             if (xSemaphoreTake(timing_log_mutex, portMAX_DELAY)) {
-                // TODO: local_timing_log = timing_log;
+            local_timing_log = timing_log;
                 xSemaphoreGive(timing_log_mutex);
             }
 
