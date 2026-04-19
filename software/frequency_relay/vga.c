@@ -142,7 +142,7 @@ void vga_display_task(void *pvParameters) {
         }
 
         // -- timing stats --
-        sprintf(text_buffer, "--- Reaction Times (Ticks) ---");
+        sprintf(text_buffer, "-- Reaction Times (ms) --");
         alt_up_char_buffer_string(char_buffer, text_buffer, 45, 5);
 
         sprintf(text_buffer, "Recent: %d, %d, %d, %d, %d       ", 
