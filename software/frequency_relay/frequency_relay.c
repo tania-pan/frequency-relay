@@ -144,18 +144,6 @@ int main(int argc, char* argv[], char* envp[]) {
 	printf("Initialization Complete.\n");
 	fflush(stdout);
 
-	initTimer();
-
-	// create tasks
-	xTaskCreate(task_frequency_calculation, 
-				"FreqCalc", 
-				1000, 
-				NULL, 
-				1, 		// priority
-				NULL);
-
-	xTaskCreate(TestFAUTask, "TestFAU", 500, NULL, 3, NULL);
-
 	// start Scheduler
 	vTaskStartScheduler();
 
