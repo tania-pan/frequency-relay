@@ -96,19 +96,19 @@ void vga_display_task(void *pvParameters) {
                 xSemaphoreGive(timing_log_mutex);
             }
 
-            // -- render VGA elements --
+        // -- render VGA elements (current measurements) --
             sprintf(text_buffer, "[%d] TF Threshold: %5.2f Hz    ", 
-                (1 - system_status.threshold_edit_mode), local_system_status.TF_threshold);
+            (1 - local_system_status.threshold_edit_mode), local_system_status.TF_threshold);
             alt_up_char_buffer_string(char_buffer, text_buffer, 5, 5);
             
             sprintf(text_buffer, "[%d] TROC Threshold: %5.2f Hz/s    ", 
-                system_status.threshold_edit_mode, local_system_status.TROC_threshold);
+            local_system_status.threshold_edit_mode, local_system_status.TROC_threshold);
             alt_up_char_buffer_string(char_buffer, text_buffer, 5, 7);
             
             sprintf(text_buffer, "Current Frequency: %f Hz    ", local_freq_data.frequency);
             alt_up_char_buffer_string(char_buffer, text_buffer, 5, 9);
 
-            sprintf(text_buffer, "Current RoC: %f Hz/s    ", local_freq_data.roc);
+        sprintf(text_buffer, "Current RoC: %5.2f Hz/s    ", local_freq_data.roc);
             alt_up_char_buffer_string(char_buffer, text_buffer, 5, 11);
 
             // TODO: add load and timing stats here
