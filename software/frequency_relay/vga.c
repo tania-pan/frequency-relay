@@ -76,10 +76,8 @@ void vga_display_task(void *pvParameters) {
 
         // -- gather local copies of data for display --
         // peak (don't steal from load management)
-        if (xQueuePeek(freq_data_q, &local_freq_data, 0) != pdTRUE) {
-            local_freq_data.frequency = 0;
-            local_freq_data.roc = 0;
-        }
+        xQueuePeek(freq_data_q, &local_freq_data, 0);
+        
 
         // lock then grab copy of system status to display
         if (xSemaphoreTake(system_status_mutex, portMAX_DELAY)) {
@@ -106,10 +104,10 @@ void vga_display_task(void *pvParameters) {
             local_system_status.threshold_edit_mode, local_system_status.TROC_threshold);
         alt_up_char_buffer_string(char_buffer, text_buffer, 5, 7);
         
-        sprintf(text_buffer, "Current Frequency: %5.2f Hz    ", local_freq_data.frequency);
+        sprintf(text_buffer, "Current Frequency: %5.2f Hz    ", ui_freq_data.frequency);
         alt_up_char_buffer_string(char_buffer, text_buffer, 5, 9);
 
-        sprintf(text_buffer, "Current RoC: %5.2f Hz/s    ", local_freq_data.roc);
+        sprintf(text_buffer, "Current RoC: %5.2f Hz/s    ", ui_freq_data.roc);
         alt_up_char_buffer_string(char_buffer, text_buffer, 5, 11);
 
         // -- current mode

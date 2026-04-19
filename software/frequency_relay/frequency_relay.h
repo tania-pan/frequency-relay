@@ -21,6 +21,9 @@ extern SemaphoreHandle_t load_status_mutex;
 extern SemaphoreHandle_t system_status_mutex;
 extern SemaphoreHandle_t timing_log_mutex;
 
+extern freq_data_t ui_freq_data;
+extern SemaphoreHandle_t ui_freq_mutex;
+
 void init_config(void);
 
 #endif  /* __FREQUENCY_RELAY_H_ */

@@ -29,6 +29,9 @@ SemaphoreHandle_t timing_log_mutex;
 freq_data_t freq_data;
 system_status_t system_status;
 
+freq_data_t ui_freq_data;
+SemaphoreHandle_t ui_freq_mutex;
+
 void init_config(void) {
 	// -- global data --
 	freq_data.frequency = 0;
@@ -49,11 +52,12 @@ void init_config(void) {
 	load_status_mutex = xSemaphoreCreateMutex();
 	system_status_mutex = xSemaphoreCreateMutex();
 	timing_log_mutex = xSemaphoreCreateMutex();
+	ui_freq_mutex = xSemaphoreCreateMutex();
 
 	// check for any init failures
 	if (button_q == NULL || kbd_q == NULL || freq_data_q == NULL ||
 	peak_ready_sem == NULL || load_status_mutex == NULL || system_status_mutex == NULL ||
-	timing_log_mutex == NULL) {
+	timing_log_mutex == NULL || ui_freq_mutex == NULL) {
 		printf("Fatal Error: Failed to create FreeRTOS primitives.\n");
 		fflush(stdout);
 		for (;;); // halt on fatal error
