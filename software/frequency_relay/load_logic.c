@@ -9,8 +9,7 @@
 
 #include "frequency_relay.h"
 
-loadStatus_t load_status[NUM_LOADS] = {LOAD_OFF, LOAD_OFF, LOAD_OFF, LOAD_OFF, LOAD_OFF};
-systemState_t system_state = SYSTEM_NORMAL;
+load_status_t load_status[NUM_LOADS] = {LOAD_OFF, LOAD_OFF, LOAD_OFF, LOAD_OFF, LOAD_OFF};
 TimerHandle_t timer_500ms = NULL;
 
 static void timer_500ms_callback(TimerHandle_t timer_500ms);
@@ -30,7 +29,7 @@ void init_timer(void) {
     }
 }
 
-// sheds ON load with lowest priority 
+// sheds lowest priority ON load
 static int shed_next_load(void) {
     xSemaphoreTake(load_status_mutex, portMAX_DELAY);
 
@@ -68,9 +67,9 @@ static int reconnect_next_load(void) {
     if (reconnect_index >= 0) {
         // only reconnect if switch is still on
         uint32_t switch_state = IORD_ALTERA_AVALON_PIO_DATA(SLIDE_SWITCH_BASE);
-        int switchOn = (switch_state >> reconnect_index) & 0x1;
+        int switch_on = (switch_state >> reconnect_index) & 0x1;
 
-        if (switchOn) {
+        if (switch_on) {
             load_status[reconnect_index] = LOAD_ON;
             update_leds();
         } else {
@@ -98,16 +97,16 @@ static int all_loads_reconnected(void) {
         }
     }
 
-    xSemaphoreGive(loadStatusMutex);
+    xSemaphoreGive(load_status_mutex);
     return reconnected;
 }
 
+// timer callback to manage load shedding and reconnecting based on frequency status
 static void timer_500ms_callback(TimerHandle_t xTimer) {
 
     if (xSemaphoreTake(system_status_mutex, 0)) {
-        systemState_t current_state = system_state;
         xSemaphoreGive(system_status_mutex);
-        if (current_state != SYSTEM_MANAGING) {
+        if (system_status.system_state != SYSTEM_MANAGING) {
             return;
         }
 
@@ -116,12 +115,12 @@ static void timer_500ms_callback(TimerHandle_t xTimer) {
             shed_next_load();
         } else {
             // frequency good, try reconnecting loads
-            int reconnectedIndex = reconnect_next_load();
+            int reconnected_index = reconnect_next_load();
 
             // if nothing left to reconnect, go back to normal mode
-            if (reconnectedIndex < 0 || all_loads_reconnected()) {
+            if (reconnected_index < 0 || all_loads_reconnected()) {
                 if (xSemaphoreTake(system_status_mutex, 0)) {
-                    system_state = SYSTEM_NORMAL;
+                    system_status.system_state = SYSTEM_NORMAL;
                     xSemaphoreGive(system_status_mutex);
                 }
                 xTimerStop(xTimer, 0);
@@ -129,4 +128,26 @@ static void timer_500ms_callback(TimerHandle_t xTimer) {
         }
         update_leds();
     }
+}
+
+// handle maintenance mode toggle button
+void handle_maintenance_toggle(void) {
+    xSemaphoreTake(system_status_mutex, portMAX_DELAY);
+    if (system_status.system_state == SYSTEM_MAINTENANCE) {
+        system_status.system_state = SYSTEM_NORMAL;
+    } else {
+        system_status.system_state = SYSTEM_MAINTENANCE;
+        xTimerStop(timer_500ms, 0);
+        network_unstable = 0;
+
+        // SHED loads return to OFF state in maintenance mode
+        xSemaphoreTake(load_status_mutex, portMAX_DELAY);
+        for (int i = 0; i < NUM_LOADS; i++) {
+            if (load_status[i] == LOAD_SHED) {
+                load_status[i] = LOAD_OFF; 
+            }
+        }
+        xSemaphoreGive(load_status_mutex);
+    }
+    xSemaphoreGive(system_status_mutex);
 }

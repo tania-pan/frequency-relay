@@ -58,7 +58,7 @@ void task_load_management(void *pvParameters) {
         }
 
         if (xQueueReceive(button_q, &button_cmd, 0) == pdTRUE) {
-            // handle maintenance toggle button
+            handle_maintenance_toggle();
         }
 
         poll_switches();

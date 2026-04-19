@@ -21,7 +21,7 @@ static void update_leds(void) {
         if (load_status[i] == LOAD_ON) {
             red_mask |= (1 << i); // Set bit for red LED
         } else {
-            greenMask |= (1 << i); // Set bit for green LED
+            green_mask |= (1 << i); // Set bit for green LED
         }
         // LOAD_OFF
     }
@@ -30,7 +30,7 @@ static void update_leds(void) {
 
     // Update the physical LEDs
     *red_leds = red_mask;
-    *green_leds = gree_mask;
+    *green_leds = green_mask;
 }
 
 // poll the slide switches and update load status accordingly
