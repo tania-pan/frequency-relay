@@ -111,7 +111,6 @@ static void timer_500ms_callback(TimerHandle_t xTimer) {
                 xTimerStop(xTimer, 0);
             }
         }
-        update_leds();
     }
 }
 
@@ -160,7 +159,6 @@ static int shed_next_load(void) {
 
     if (shed_index >= 0) {
         load_status[shed_index] = LOAD_SHED;
-        update_leds();
     }
     xSemaphoreGive(load_status_mutex);
     return shed_index; // return index of shed load or -1 if no load to shed
@@ -187,15 +185,13 @@ static int reconnect_next_load(void) {
 
         if (switch_on) {
             load_status[reconnect_index] = LOAD_ON;
-            update_leds();
         } else {
             // if user flipped switch off while it was shed
             load_status[reconnect_index] = LOAD_OFF;
-            update_leds();
         }
-   
-        xSemaphoreGive(load_status_mutex);
     }
+
+    xSemaphoreGive(load_status_mutex);
 
     return reconnect_index; // return index of reconnected load or -1 if no load to reconnect
 }
