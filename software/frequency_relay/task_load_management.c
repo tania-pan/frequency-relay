@@ -62,8 +62,10 @@ void task_load_management(void *pvParameters) {
             }
         }
 
+        // transition to maintanence if the override button pressed
         if (xQueueReceive(button_q, &button_cmd, 0) == pdTRUE) {
-            if (!(button_cmd & 0x8)) {
+            // KEY3 
+            if (button_cmd == 0x3) {
                 handle_maintenance_toggle();
             }
         }
