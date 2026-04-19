@@ -1,10 +1,10 @@
 // task_freq_calc.c
 
 #include <stdio.h>
-#include "frequency_relay.h"
 #include "FreeRTOS/FreeRTOS.h"
+#include "frequency_relay.h"
 
-void TaskFrequencyCalculation(void *pvParameters) {
+void task_frequency_calculation(void *pvParameters) {
     float f_old = 0.0f;
     unsigned int n_old = 0;
     int first_reading = 1;  // flag to indicate first reading for ROCF calculation
@@ -29,7 +29,7 @@ void TaskFrequencyCalculation(void *pvParameters) {
             roc = (f_new - f_old) * (16000.0f / N_avg);
         }
             
-        // build freqData struct
+        // build freq_data_t struct
         freq_data_t data = {
             .frequency = f_new,
             .roc = roc,
