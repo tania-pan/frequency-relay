@@ -13,6 +13,8 @@
 #include "config.h"
 #include "isr.h"
 #include "vga.h"
+#include "task_freq_calc.h"
+#include "task_load_management.h"
 
 // globals variables for FreeRTOS
 QueueHandle_t button_q;
@@ -24,37 +26,11 @@ SemaphoreHandle_t load_status_mutex;
 SemaphoreHandle_t system_status_mutex;
 SemaphoreHandle_t timing_log_mutex;
 
-load_status_t load_status[NUM_LOADS] = {LOAD_OFF, LOAD_OFF, LOAD_OFF, LOAD_OFF, LOAD_OFF};
-timing_log_t timing_log = {0};
-
 freq_data_t freq_data;
 system_status_t system_status;
 
-void debug_consumer_task(void *pvParameters) {
-	// TODO: remove once tested and working correctly
-	int button_rx;
-	int kbd_rx;
-
-	printf("Debug task: waiting for ISR triggers");
-
-	while(1) {
-		// check semaphore if new resource has appeared
-		if (xSemaphoreTake(peak_ready_sem, 0)) {
-//			printf("FAU semaphore accessed\n");
-		}
-		// check button queue
-		if (xQueueReceive(button_q, &button_rx, 0) == pdTRUE) {
-			printf("Button queue accessed: Value = %u\n", button_rx);
-		}
-		// check kbd queue
-		if (xQueueReceive(kbd_q, &kbd_rx, 0) == pdTRUE) {
-			printf("Keyboard queue accessed: Value = %u\n", kbd_rx);
-		}
-
-		// yield to scheduler for 50ms
-		vTaskDelay(pdMS_TO_TICKS(50));
-	}
-}
+freq_data_t ui_freq_data;
+SemaphoreHandle_t ui_freq_mutex;
 
 void init_config(void) {
 	// -- global data --
@@ -76,11 +52,12 @@ void init_config(void) {
 	load_status_mutex = xSemaphoreCreateMutex();
 	system_status_mutex = xSemaphoreCreateMutex();
 	timing_log_mutex = xSemaphoreCreateMutex();
+	ui_freq_mutex = xSemaphoreCreateMutex();
 
 	// check for any init failures
 	if (button_q == NULL || kbd_q == NULL || freq_data_q == NULL ||
 	peak_ready_sem == NULL || load_status_mutex == NULL || system_status_mutex == NULL ||
-	timing_log_mutex == NULL) {
+	timing_log_mutex == NULL || ui_freq_mutex == NULL) {
 		printf("Fatal Error: Failed to create FreeRTOS primitives.\n");
 		fflush(stdout);
 		for (;;); // halt on fatal error
@@ -99,9 +76,6 @@ void init_config(void) {
 	alt_irq_register(PUSH_BUTTON_IRQ, NULL, button_isr);
 	alt_irq_register(PS2_IRQ, NULL, kbd_isr);
 
-	// create debug task for testing ISRs
-	xTaskCreate(debug_consumer_task, "DebugTask", TASK_STACKSIZE, NULL, 1, NULL);
-	
 	// -- vga display --
 	// open pixel buffer
 	alt_up_pixel_buffer_dma_dev *pixel_buf;
@@ -126,12 +100,31 @@ void init_config(void) {
 
 	alt_up_char_buffer_clear(char_buffer_dev);
 
+	// create tasks
+	xTaskCreate(
+		task_frequency_calculation, 
+		"FreqCalc", 
+		TASK_STACKSIZE, 
+		NULL, 
+		3,
+		NULL
+	);
+
+	xTaskCreate(
+		task_load_management,
+		"LoadMgmt", 
+		TASK_STACKSIZE, 
+		NULL, 
+		2,
+		NULL
+	);
+
 	xTaskCreate(
 		vga_display_task,
 		"VGATask",
 		TASK_STACKSIZE,
 		(void*)char_buffer_dev,
-		3,
+		1,
 		NULL
 	);
 }

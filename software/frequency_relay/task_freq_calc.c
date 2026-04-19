@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include "FreeRTOS/FreeRTOS.h"
 #include "frequency_relay.h"
+#include "task_freq_calc.h"
 
 void task_frequency_calculation(void *pvParameters) {
     float f_old = 0.0f;
@@ -19,8 +20,8 @@ void task_frequency_calculation(void *pvParameters) {
         // calculate frequency
         float f_new = 16000.0f / (float)n;
 
-        // for testing task 1: DELETE
-        printf("TaskFrequencyCalculation: N=%u, f=%.2fHz\n", n, f_new);
+        // TODO: for testing task 1: DELETE
+        // printf("TaskFrequencyCalculation: N=%u, f=%.2fHz\n", n, f_new);
 
         // calculate ROCF
         float roc = 0.0f;
@@ -36,6 +37,11 @@ void task_frequency_calculation(void *pvParameters) {
             .n = n,
             .timestamp = xTaskGetTickCount()
         };
+
+        if (xSemaphoreTake(ui_freq_mutex, portMAX_DELAY) == pdTRUE) {
+            ui_freq_data = data;
+            xSemaphoreGive(ui_freq_mutex);
+        }
 
         // send to queue (if queue is full, discard this reading)
         xQueueSend(freq_data_q, &data, 0);

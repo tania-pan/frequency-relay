@@ -6,6 +6,7 @@
 #include "../frequency_relay_bsp/drivers/inc/altera_up_avalon_video_character_buffer_with_dma.h"
 
 #include "frequency_relay.h"
+#include "task_load_management.h"
 #include "vga.h"
 #include "types.h"
 
@@ -75,10 +76,8 @@ void vga_display_task(void *pvParameters) {
 
         // -- gather local copies of data for display --
         // peak (don't steal from load management)
-        if (xQueuePeek(freq_data_q, &local_freq_data, 0) != pdTRUE) {
-            local_freq_data.frequency = 0;
-            local_freq_data.roc = 0;
-        }
+        xQueuePeek(freq_data_q, &local_freq_data, 0);
+        
 
         // lock then grab copy of system status to display
         if (xSemaphoreTake(system_status_mutex, portMAX_DELAY)) {
@@ -105,10 +104,10 @@ void vga_display_task(void *pvParameters) {
             local_system_status.threshold_edit_mode, local_system_status.TROC_threshold);
         alt_up_char_buffer_string(char_buffer, text_buffer, 5, 7);
         
-        sprintf(text_buffer, "Current Frequency: %5.2f Hz    ", local_freq_data.frequency);
+        sprintf(text_buffer, "Current Frequency: %5.2f Hz    ", ui_freq_data.frequency);
         alt_up_char_buffer_string(char_buffer, text_buffer, 5, 9);
 
-        sprintf(text_buffer, "Current RoC: %5.2f Hz/s    ", local_freq_data.roc);
+        sprintf(text_buffer, "Current RoC: %5.2f Hz/s    ", ui_freq_data.roc);
         alt_up_char_buffer_string(char_buffer, text_buffer, 5, 11);
 
         // -- current mode
@@ -143,7 +142,7 @@ void vga_display_task(void *pvParameters) {
         }
 
         // -- timing stats --
-        sprintf(text_buffer, "--- Reaction Times (Ticks) ---");
+        sprintf(text_buffer, "-- Reaction Times (ms) --");
         alt_up_char_buffer_string(char_buffer, text_buffer, 45, 5);
 
         sprintf(text_buffer, "Recent: %d, %d, %d, %d, %d       ", 
@@ -160,6 +159,12 @@ void vga_display_task(void *pvParameters) {
         unsigned int uptime_sec = xTaskGetTickCount() / configTICK_RATE_HZ;
         sprintf(text_buffer, "System Uptime: %u seconds      ", uptime_sec);
         alt_up_char_buffer_string(char_buffer, text_buffer, 45, 12);
+
+        // -- watermark --
+        sprintf(text_buffer, "LCFR CONTROL PANEL");
+        alt_up_char_buffer_string(char_buffer, text_buffer, 5, 50);
+        sprintf(text_buffer, "BY CHRIS M. & TANIA P.");
+        alt_up_char_buffer_string(char_buffer, text_buffer, 5, 52);
 
         vTaskDelayUntil(&last_wake_ticks, freq_ticks);
     }

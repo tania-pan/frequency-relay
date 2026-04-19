@@ -152,6 +152,7 @@ C_SRCS += FreeRTOS/tasks.c
 C_SRCS += FreeRTOS/timers.c
 C_SRCS += frequency_relay.c
 C_SRCS += task_freq_calc.c
+C_SRCS += task_load_management.c
 C_SRCS += isr.c
 C_SRCS += vga.c
 CXX_SRCS :=
