@@ -6,6 +6,7 @@
 #include "../frequency_relay_bsp/drivers/inc/altera_up_avalon_video_character_buffer_with_dma.h"
 
 #include "frequency_relay.h"
+#include "task_load_management.h"
 #include "vga.h"
 #include "types.h"
 
