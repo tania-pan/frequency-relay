@@ -1,16 +1,10 @@
 # Frequency Relay
-
-A FreeRTOS-based application running on a Nios II soft-core processor (Intel/Altera Cyclone V FPGA).
-
+COMPSYS723 Assignment 1
 ## Hardware & Software Requirements
 * **Target Hardware:** Intel/Altera Cyclone V FPGA
 * **Processor:** Nios II Soft-Core Processor
-* **IDE:** Nios II Software Build Tools (SBT) for Eclipse
+* **IDE:** Nios II Software Build Tools for Eclipse
 * **RTOS:** FreeRTOS
-
-## Project Structure
-* `frequency_relay/`: Main application source code (`.c` / `.h` files) and FreeRTOS tasks.
-* `frequency_relay_bsp/`: Board Support Package containing hardware abstractions, drivers, and FreeRTOS source files.
 
 ## Build Instructions
 1. Open Nios II SBT for Eclipse and select your workspace.
@@ -18,20 +12,6 @@ A FreeRTOS-based application running on a Nios II soft-core processor (Intel/Alt
 3. Right-click the `frequency_relay_bsp` project -> **Nios II** -> **Generate BSP**.
 4. Right-click the `frequency_relay_bsp` project -> **Build Project**.
 5. Right-click the `frequency_relay` main project -> **Build Project**.
-
-## FreeRTOS Architecture Overview
-This application relies on the following FreeRTOS inter-task communication/synchronization mechanisms:
-
-**Queues:**
-* `buttonCmdQ`: Handles incoming button commands.
-* `kbdQ`: Handles keyboard inputs.
-* `freqDataQ`: Passes calculated or measured frequency data between tasks.
-
-**Semaphores & Mutexes:**
-* `peakReadSem`: Binary semaphore used to signal when a peak reading is ready.
-* `loadStatusMutex`: Mutex protecting shared load status variables.
-* `systemStatusMutex`: Mutex protecting shared system status variables.
-* `timingLogMutex`: Mutex protecting the timing log or logging interface.
 
 ## Running the Application
 1. Ensure your Cyclone V board is connected and powered on.
